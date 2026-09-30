@@ -1,0 +1,64 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Lint, Typecheck, Test & Build
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      PORT: 3000
+      TZ: UTC
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: chamcong_test
+      POSTGRES_USER: chamcong_user
+      POSTGRES_PASSWORD: changeme_strong_password
+      REDIS_URL: redis://localhost:6379
+      JWT_ACCESS_SECRET: changeme_access_secret_64_chars_minimum_please_change_this_now
+      JWT_REFRESH_SECRET: changeme_refresh_secret_64_chars_minimum_please_change_this_now
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      CORS_ORIGIN: http://localhost:5173
+      WIFI_RESTRICTION: false
+      ALLOWED_IPS: 192.168.1.0/24
+      DEFAULT_STORE_ID: 1
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup environment variables
+        run: cp .env.example .env
+
+      - name: Run linter (eslint)
+        run: npm run lint
+
+      - name: Run typecheck
+        run: npm run typecheck
+
+      - name: Run unit & integration tests (vitest)
+        run: npm run test
+
+      - name: Build
+        run: npm run build
