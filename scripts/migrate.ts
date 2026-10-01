@@ -42,9 +42,10 @@ async function getClient(): Promise<pg.Client> {
 async function ensureMigrationsTable(client: pg.Client): Promise<void> {
   await client.query(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
-      version    VARCHAR(20) PRIMARY KEY,
+      version    VARCHAR(100) PRIMARY KEY,
       applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
+    );
+    ALTER TABLE schema_migrations ALTER COLUMN version TYPE VARCHAR(100);
   `);
 }
 

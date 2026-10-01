@@ -103,6 +103,95 @@ async function seed(): Promise<void> {
         }
       }
 
+      // Seed staff_default_shifts
+      const defaultShifts = [
+        // Nguyễn Văn An: Thứ 2 -> Thứ 6 ca sáng (weekday 1..5)
+        { user_id: '00000000-0000-0000-0000-000000000002', weekday: 1, template_id: 'aaaaaaaa-0000-0000-0000-000000000001' },
+        { user_id: '00000000-0000-0000-0000-000000000002', weekday: 2, template_id: 'aaaaaaaa-0000-0000-0000-000000000001' },
+        { user_id: '00000000-0000-0000-0000-000000000002', weekday: 3, template_id: 'aaaaaaaa-0000-0000-0000-000000000001' },
+        { user_id: '00000000-0000-0000-0000-000000000002', weekday: 4, template_id: 'aaaaaaaa-0000-0000-0000-000000000001' },
+        { user_id: '00000000-0000-0000-0000-000000000002', weekday: 5, template_id: 'aaaaaaaa-0000-0000-0000-000000000001' },
+        // Trần Thị Bình: Thứ 2 -> Thứ 6 ca chiều
+        { user_id: '00000000-0000-0000-0000-000000000003', weekday: 1, template_id: 'aaaaaaaa-0000-0000-0000-000000000002' },
+        { user_id: '00000000-0000-0000-0000-000000000003', weekday: 2, template_id: 'aaaaaaaa-0000-0000-0000-000000000002' },
+        { user_id: '00000000-0000-0000-0000-000000000003', weekday: 3, template_id: 'aaaaaaaa-0000-0000-0000-000000000002' },
+        { user_id: '00000000-0000-0000-0000-000000000003', weekday: 4, template_id: 'aaaaaaaa-0000-0000-0000-000000000002' },
+        { user_id: '00000000-0000-0000-0000-000000000003', weekday: 5, template_id: 'aaaaaaaa-0000-0000-0000-000000000002' },
+        // Lê Văn Cường: Thứ 2, 4, 6 ca tối
+        { user_id: '00000000-0000-0000-0000-000000000004', weekday: 1, template_id: 'aaaaaaaa-0000-0000-0000-000000000003' },
+        { user_id: '00000000-0000-0000-0000-000000000004', weekday: 3, template_id: 'aaaaaaaa-0000-0000-0000-000000000003' },
+        { user_id: '00000000-0000-0000-0000-000000000004', weekday: 5, template_id: 'aaaaaaaa-0000-0000-0000-000000000003' },
+      ];
+
+      for (const ds of defaultShifts) {
+        await client.query(`
+          INSERT INTO staff_default_shifts (store_id, user_id, weekday, shift_template_id)
+          VALUES (1, $1, $2, $3)
+          ON CONFLICT (user_id, weekday, shift_template_id) DO NOTHING
+        `, [ds.user_id, ds.weekday, ds.template_id]);
+      }
+
+      // Seed mẫu ca leave_approved và swapped_out trong tuần hiện tại để kiểm chứng UI Lịch Chung & Lịch Của Tôi
+      const nowVN = new Date(Date.now() + 7 * 3600 * 1000);
+      const dayOfWeek = nowVN.getUTCDay();
+      const diffToMon = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      const mondayMs = nowVN.getTime() - diffToMon * 86400000;
+      const fmt = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+      const tueDate = fmt(mondayMs + 86400000);
+      const wedDate = fmt(mondayMs + 2 * 86400000);
+
+      // Đơn nghỉ phép cho Lê Văn Cường vào Thứ Ba
+      await client.query(`
+        INSERT INTO leaves (id, store_id, user_id, start_date, end_date, days_count, reason, status)
+        VALUES (
+          'cccccccc-0000-0000-0000-000000000001', 1,
+          '00000000-0000-0000-0000-000000000004',
+          $1, $1, 1, 'Bận việc gia đình', 'approved'
+        ) ON CONFLICT DO NOTHING
+      `, [tueDate]);
+
+      // Ca có trạng thái leave_approved của Cường
+      const leaveShiftRes = await client.query(`
+        INSERT INTO shifts (id, store_id, template_id, assigned_to, status, source, work_date, created_by)
+        VALUES (
+          'dddddddd-0000-0000-0000-000000000001', 1,
+          'aaaaaaaa-0000-0000-0000-000000000003',
+          '00000000-0000-0000-0000-000000000004',
+          'leave_approved', 'default', $1,
+          '00000000-0000-0000-0000-000000000001'
+        ) ON CONFLICT DO NOTHING
+        RETURNING id
+      `, [tueDate]);
+
+      if (leaveShiftRes.rows[0]) {
+        await client.query(`
+          INSERT INTO shift_segments (shift_id, starts_at, ends_at, sort_order)
+          VALUES ('dddddddd-0000-0000-0000-000000000001', $1, $2, 0)
+          ON CONFLICT DO NOTHING
+        `, [`${tueDate}T10:00:00Z`, `${tueDate}T15:00:00Z`]);
+      }
+
+      // Ca có trạng thái swapped_out của Bình vào Thứ Tư
+      const swapShiftRes = await client.query(`
+        INSERT INTO shifts (id, store_id, template_id, assigned_to, status, source, work_date, created_by)
+        VALUES (
+          'dddddddd-0000-0000-0000-000000000002', 1,
+          'aaaaaaaa-0000-0000-0000-000000000002',
+          '00000000-0000-0000-0000-000000000003',
+          'swapped_out', 'manual', $1,
+          '00000000-0000-0000-0000-000000000001'
+        ) ON CONFLICT DO NOTHING
+        RETURNING id
+      `, [wedDate]);
+
+      if (swapShiftRes.rows[0]) {
+        await client.query(`
+          INSERT INTO shift_segments (shift_id, starts_at, ends_at, sort_order)
+          VALUES ('dddddddd-0000-0000-0000-000000000002', $1, $2, 0)
+          ON CONFLICT DO NOTHING
+        `, [`${wedDate}T05:00:00Z`, `${wedDate}T10:00:00Z`]);
+      }
+
       await client.query('COMMIT');
       process.stdout.write('✅ Seed completed!\n\n');
       process.stdout.write('📋 Accounts created:\n');

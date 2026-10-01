@@ -56,3 +56,30 @@ export function diffHours(from: Date, to: Date): number {
 export function diffMinutes(from: Date, to: Date): number {
   return Math.floor((to.getTime() - from.getTime()) / (1000 * 60));
 }
+
+export function getDaysOfWeek(startDate: string): string[] {
+  const [y, m, d] = startDate.split('-').map(Number);
+  const days: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const dt = new Date(Date.UTC(y!, m! - 1, d! + i));
+    days.push(dt.toISOString().slice(0, 10));
+  }
+  return days;
+}
+
+export function getTomorrowVietnam(referenceDate?: Date): string {
+  const d = referenceDate ?? new Date();
+  const nextDay = new Date(d.getTime() + 24 * 3600 * 1000);
+  return toVietnamDate(nextDay);
+}
+
+export function isTomorrowVietnam(workDate: string, referenceDate?: Date): boolean {
+  return workDate === getTomorrowVietnam(referenceDate);
+}
+
+export function addDaysVietnam(startDate: string, daysToAdd: number): string {
+  const [y, m, d] = startDate.split('-').map(Number);
+  const dt = new Date(Date.UTC(y!, m! - 1, d! + daysToAdd));
+  return dt.toISOString().slice(0, 10);
+}
+

@@ -1,6 +1,7 @@
 import { type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
 import { shiftsService } from '../services/shifts.service.js';
+import { defaultShiftsService } from '../services/defaultShifts.service.js';
 import { getWeekRange } from '../lib/timezone.js';
 
 const segmentSchema = z.object({
@@ -134,6 +135,40 @@ export const shiftsController = {
   async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       await shiftsService.delete(req.params['id']!, req.user!.storeId);
+      res.status(204).send();
+    } catch (err) { next(err); }
+  },
+
+  async listDefaultShifts(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.query['userId'] as string | undefined;
+      const list = await defaultShiftsService.list(req.user!.storeId, userId);
+      res.json(list);
+    } catch (err) { next(err); }
+  },
+
+  async createDefaultShift(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const schema = z.object({
+        userId: z.string().uuid(),
+        weekday: z.number().int().min(1).max(7),
+        shiftTemplateId: z.string().uuid(),
+      });
+      const body = schema.parse(req.body);
+      const created = await defaultShiftsService.create(
+        req.user!.storeId,
+        body.userId,
+        body.weekday,
+        body.shiftTemplateId,
+      );
+      res.status(201).json(created);
+    } catch (err) { next(err); }
+  },
+
+  async deleteDefaultShift(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const id = parseInt(req.params['id']!, 10);
+      await defaultShiftsService.delete(id, req.user!.storeId);
       res.status(204).send();
     } catch (err) { next(err); }
   },

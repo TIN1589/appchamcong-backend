@@ -2,6 +2,8 @@ import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { logger } from './lib/logger.js';
 import { db } from './db/client.js';
+import { rosterGenerationService } from './services/rosterGeneration.service.js';
+import { startRosterCron, stopRosterCron } from './services/rosterCron.service.js';
 
 async function main(): Promise<void> {
   const app = createApp();
@@ -11,10 +13,17 @@ async function main(): Promise<void> {
       { port: env.PORT, nodeEnv: env.NODE_ENV },
       `🚀 chamcong-backend started on port ${env.PORT}`,
     );
+
+    // Bắt đầu cron và chạy catch-up tạo lịch tuần kế tiếp khi khởi động
+    void rosterGenerationService.checkAndCatchUpNextWeek(1).catch((err: unknown) => {
+      logger.error({ err }, 'Lỗi khi chạy catch-up tạo lịch tuần kế tiếp');
+    });
+    startRosterCron();
   });
 
   async function shutdown(signal: string): Promise<void> {
     logger.info({ signal }, 'Shutting down gracefully...');
+    stopRosterCron();
     server.close(async () => {
       try {
         await db.end();

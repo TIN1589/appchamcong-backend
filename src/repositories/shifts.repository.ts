@@ -182,6 +182,8 @@ export const shiftsRepository = {
       assignedTo?: string;
       workDate: string;
       notes?: string;
+      source?: 'default' | 'manual' | 'swap';
+      status?: ShiftStatus;
       segments: Array<{
         startsAt: Date;
         endsAt: Date;
@@ -191,15 +193,16 @@ export const shiftsRepository = {
   ): Promise<ShiftWithSegments> {
     return withTransaction(async (client) => {
       const shiftResult = await client.query<Shift>(
-        `INSERT INTO shifts (store_id, template_id, assigned_to, status, work_date, notes, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+        `INSERT INTO shifts (store_id, template_id, assigned_to, status, work_date, notes, source, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
         [
           storeId,
           data.templateId ?? null,
           data.assignedTo ?? null,
-          data.assignedTo ? 'assigned' : 'open',
+          data.status ?? (data.assignedTo ? 'scheduled' : 'open'),
           data.workDate,
           data.notes ?? null,
+          data.source ?? 'manual',
           createdBy,
         ],
       );
@@ -237,7 +240,7 @@ export const shiftsRepository = {
       if (!shift || shift.status !== 'open') return null;
 
       const updateResult = await client.query<Shift>(
-        `UPDATE shifts SET assigned_to = $1, status = 'assigned', updated_at = NOW()
+        `UPDATE shifts SET assigned_to = $1, status = 'scheduled', updated_at = NOW()
          WHERE id = $2 AND store_id = $3 RETURNING *`,
         [userId, shiftId, storeId],
       );
@@ -267,7 +270,7 @@ export const shiftsRepository = {
          JOIN shifts s ON ss.shift_id = s.id
          WHERE s.assigned_to = $1
            AND s.store_id = $2
-           AND s.status = 'assigned'
+           AND s.status IN ('assigned', 'scheduled')
            AND ($3 IS NULL OR s.id != $3)
            AND ss.starts_at < $5
            AND ss.ends_at > $4`,

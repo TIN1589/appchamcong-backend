@@ -1,6 +1,7 @@
 import { type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
 import { usersService } from '../services/users.service.js';
+import { ForbiddenError } from '../lib/errors.js';
 
 const createUserSchema = z.object({
   email: z.string().email(),
@@ -74,12 +75,19 @@ export const usersController = {
     try {
       const userId = req.params['id']!;
       const body = updateUserSchema.parse(req.body);
+      const isAdmin = req.user!.role === 'admin';
+
+      // Nhân viên chỉ được cập nhật họ tên và số điện thoại cá nhân
+      if (!isAdmin && (body.hourlyRate !== undefined || body.leaveBalance !== undefined || body.isActive !== undefined)) {
+        throw new ForbiddenError('Bạn không có quyền thay đổi thông tin lương/phép');
+      }
+
       const user = await usersService.update(userId, req.user!.storeId, {
         ...(body.fullName !== undefined ? { fullName: body.fullName } : {}),
         ...(body.phone !== undefined ? { phone: body.phone } : {}),
-        ...(body.hourlyRate !== undefined ? { hourlyRate: body.hourlyRate } : {}),
-        ...(body.leaveBalance !== undefined ? { leaveBalance: body.leaveBalance } : {}),
-        ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
+        ...(isAdmin && body.hourlyRate !== undefined ? { hourlyRate: body.hourlyRate } : {}),
+        ...(isAdmin && body.leaveBalance !== undefined ? { leaveBalance: body.leaveBalance } : {}),
+        ...(isAdmin && body.isActive !== undefined ? { isActive: body.isActive } : {}),
       });
       res.json(user);
     } catch (err) { next(err); }

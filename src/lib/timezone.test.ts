@@ -85,3 +85,19 @@ describe('diffMinutes', () => {
     expect(diffMinutes(from, to)).toBe(1);
   });
 });
+
+describe('getTomorrowVietnam & isTomorrowVietnam (§8 SRS v1.1 Delta)', () => {
+  it('tính đúng "ngày mai" khi server chạy ở UTC và thời điểm là 23:55 ICT (16:55 UTC)', () => {
+    // 2026-10-01 23:55 ICT = 2026-10-01 16:55 UTC
+    const nearMidnightICT = new Date('2026-10-01T16:55:00.000Z');
+    const tomorrow = toVietnamDate(new Date(nearMidnightICT.getTime() + 24 * 3600 * 1000));
+    expect(tomorrow).toBe('2026-10-02');
+  });
+
+  it('tính đúng "ngày mai" khi vừa qua nửa đêm ICT 00:05 ICT (17:05 UTC)', () => {
+    // 2026-10-02 00:05 ICT = 2026-10-01 17:05 UTC
+    const justPastMidnightICT = new Date('2026-10-01T17:05:00.000Z');
+    const tomorrow = toVietnamDate(new Date(justPastMidnightICT.getTime() + 24 * 3600 * 1000));
+    expect(tomorrow).toBe('2026-10-03');
+  });
+});

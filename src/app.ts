@@ -14,6 +14,7 @@ import { checkDbConnection } from './db/client.js';
 import { authRouter } from './routes/auth.js';
 import { usersRouter } from './routes/users.js';
 import { shiftsRouter } from './routes/shifts.js';
+import { scheduleRouter } from './routes/schedule.js';
 import { wifiRestrictionMiddleware } from './middleware/wifiRestriction.js';
 
 export function createApp(): express.Application {
@@ -100,6 +101,10 @@ export function createApp(): express.Application {
   app.use('/api/auth', authRouter);
   app.use('/api/users', usersRouter);
   app.use('/api/shifts', shiftsRouter);
+  app.use('/api/schedule', scheduleRouter);
+  app.use('/schedule', scheduleRouter);
+  app.use('/api/schedules', scheduleRouter);
+  app.use('/schedules', scheduleRouter);
 
   app.use(notFoundHandler);
 

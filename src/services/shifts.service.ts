@@ -82,6 +82,17 @@ export const shiftsService = {
       sortOrder: i,
     }));
 
+    if (data.assignedTo) {
+      const isOverlap = await shiftsRepository.hasOverlap(
+        data.assignedTo,
+        storeId,
+        segments.map((s) => ({ startsAt: s.startsAt, endsAt: s.endsAt })),
+      );
+      if (isOverlap) {
+        throw new ConflictError(ErrorCode.SHIFT_ALREADY_ASSIGNED, 'Nhân viên đã có ca trùng thời gian');
+      }
+    }
+
     return shiftsRepository.create(storeId, createdBy, {
       templateId: data.templateId,
       ...(data.assignedTo !== undefined ? { assignedTo: data.assignedTo } : {}),
@@ -121,6 +132,17 @@ export const shiftsService = {
       sortOrder: i,
     }));
 
+    if (data.assignedTo) {
+      const isOverlap = await shiftsRepository.hasOverlap(
+        data.assignedTo,
+        storeId,
+        segments.map((s) => ({ startsAt: s.startsAt, endsAt: s.endsAt })),
+      );
+      if (isOverlap) {
+        throw new ConflictError(ErrorCode.SHIFT_ALREADY_ASSIGNED, 'Nhân viên đã có ca trùng thời gian');
+      }
+    }
+
     return shiftsRepository.create(storeId, createdBy, {
       workDate: data.workDate,
       ...(data.assignedTo !== undefined ? { assignedTo: data.assignedTo } : {}),
@@ -153,6 +175,19 @@ export const shiftsService = {
     storeId: number,
     userId: string,
   ): Promise<ShiftWithSegments> {
+    const existingShift = await shiftsRepository.findById(shiftId, storeId);
+    if (!existingShift) throw new NotFoundError('Ca làm việc');
+
+    const isOverlap = await shiftsRepository.hasOverlap(
+      userId,
+      storeId,
+      existingShift.segments.map((s) => ({ startsAt: new Date(s.starts_at), endsAt: new Date(s.ends_at) })),
+      shiftId,
+    );
+    if (isOverlap) {
+      throw new ConflictError(ErrorCode.SHIFT_ALREADY_ASSIGNED, 'Nhân viên đã có ca trùng thời gian');
+    }
+
     const shift = await shiftsRepository.assignToUser(shiftId, storeId, userId);
     if (!shift) {
       throw new ConflictError(

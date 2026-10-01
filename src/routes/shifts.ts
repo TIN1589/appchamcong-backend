@@ -21,6 +21,10 @@ shiftsRouter.post('/from-template', requireRole('admin'), (req, res, next) => {
   void shiftsController.createFromTemplate(req, res, next);
 });
 
+shiftsRouter.get('/defaults', (req, res, next) => { void shiftsController.listDefaultShifts(req, res, next); });
+shiftsRouter.post('/defaults', requireRole('admin'), (req, res, next) => { void shiftsController.createDefaultShift(req, res, next); });
+shiftsRouter.delete('/defaults/:id', requireRole('admin'), (req, res, next) => { void shiftsController.deleteDefaultShift(req, res, next); });
+
 shiftsRouter.get('/', (req, res, next) => { void shiftsController.list(req, res, next); });
 shiftsRouter.post('/', requireRole('admin'), (req, res, next) => { void shiftsController.create(req, res, next); });
 shiftsRouter.get('/:id', (req, res, next) => { void shiftsController.getById(req, res, next); });
