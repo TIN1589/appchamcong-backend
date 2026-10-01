@@ -1,6 +1,3 @@
-/**
- * Users repository — CRUD nhân viên [10-backend.md]
- */
 import { query } from '../db/client.js';
 import type { User, SafeUser, UserRole, PaginatedResult, PaginationParams } from '../types/db.js';
 
@@ -11,7 +8,6 @@ function toSafeUser(user: User): SafeUser {
 }
 
 export const usersRepository = {
-  /** Tìm user theo id (thuộc cùng store) */
   async findById(userId: string, storeId: number): Promise<User | null> {
     const result = await query<User>(
       'SELECT * FROM users WHERE id = $1 AND store_id = $2',
@@ -20,7 +16,6 @@ export const usersRepository = {
     return result.rows[0] ?? null;
   },
 
-  /** List users trong store, có phân trang [10-backend.md] */
   async findAll(
     storeId: number,
     pagination: PaginationParams,
@@ -66,7 +61,6 @@ export const usersRepository = {
     };
   },
 
-  /** Tạo user mới (Admin tạo, không self-register) [10-backend.md] */
   async create(data: {
     storeId: number;
     email: string;
@@ -99,7 +93,6 @@ export const usersRepository = {
     return toSafeUser(user);
   },
 
-  /** Cập nhật thông tin user */
   async update(
     userId: string,
     storeId: number,
@@ -135,7 +128,6 @@ export const usersRepository = {
     return user ? toSafeUser(user) : null;
   },
 
-  /** Lưu face descriptor [A7] */
   async saveFaceDescriptor(userId: string, storeId: number, descriptor: number[]): Promise<void> {
     await query(
       'UPDATE users SET face_descriptor = $1, updated_at = NOW() WHERE id = $2 AND store_id = $3',
@@ -143,7 +135,6 @@ export const usersRepository = {
     );
   },
 
-  /** Lấy face descriptor để so sánh [A7] */
   async getFaceDescriptor(userId: string, storeId: number): Promise<number[] | null> {
     const result = await query<{ face_descriptor: number[] | null }>(
       'SELECT face_descriptor FROM users WHERE id = $1 AND store_id = $2 AND is_active = true',
@@ -152,7 +143,6 @@ export const usersRepository = {
     return result.rows[0]?.face_descriptor ?? null;
   },
 
-  /** Giảm leave_balance trong transaction (Phase 2) */
   async decreaseLeaveBalance(
     userId: string,
     storeId: number,
@@ -168,7 +158,6 @@ export const usersRepository = {
     );
   },
 
-  /** Check email đã tồn tại trong store */
   async emailExists(email: string, storeId: number): Promise<boolean> {
     const result = await query<{ count: string }>(
       'SELECT COUNT(*) as count FROM users WHERE email = $1 AND store_id = $2',

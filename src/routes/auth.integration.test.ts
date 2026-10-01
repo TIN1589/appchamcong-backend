@@ -6,8 +6,8 @@ import { shiftsRouter } from './shifts.js';
 import { authService } from '../services/auth.service.js';
 import cookieParser from 'cookie-parser';
 import { errorHandler } from '../lib/errors.js';
+import jwt from 'jsonwebtoken';
 
-// Setup app for testing
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
@@ -15,9 +15,6 @@ app.use('/api/auth', authRouter);
 app.use('/api/shifts', shiftsRouter);
 app.use(errorHandler);
 
-import jwt from 'jsonwebtoken';
-
-// Mock jwt
 vi.mock('jsonwebtoken', async () => {
   const actual = await vi.importActual('jsonwebtoken');
   return {
@@ -41,7 +38,6 @@ describe('Auth & RBAC Integration Tests', () => {
   });
 
   it('should block requests to /api/auth/me if password not changed', async () => {
-    // Mock verify token to return a user with mustChangePassword = true
     vi.mocked(jwt.verify).mockReturnValue({
       sub: '123',
       storeId: 1,

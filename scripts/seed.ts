@@ -1,19 +1,13 @@
-/**
- * Seed script — tạo admin + demo data với bcrypt hash thực tế
- * Chạy: npm run seed
- * Phải chạy sau migrate
- */
 import pg from 'pg';
 import bcrypt from 'bcrypt';
 
-// Tự động nạp .env nếu chạy local ngoài docker (Node 20+)
 try {
   process.loadEnvFile?.('.env');
 } catch {
   try {
     process.loadEnvFile?.('../.env');
   } catch {
-    // Không có file .env
+    // Bỏ qua lỗi khi không có file .env trong container
   }
 }
 
@@ -47,22 +41,18 @@ async function seed(): Promise<void> {
   try {
     process.stdout.write('🌱 Starting seed...\n');
 
-    // Hash passwords
     process.stdout.write('  Hashing passwords (bcrypt cost=12, takes a moment)...\n');
     const adminHash = await bcrypt.hash(ADMIN_PASSWORD, BCRYPT_ROUNDS);
     const staffHash = await bcrypt.hash('Staff@1234!', BCRYPT_ROUNDS);
 
-    // Chạy SQL inline — không dùng file read
     await client.query('BEGIN');
     try {
-      // Store
       await client.query(`
         INSERT INTO stores (id, name, address, lat, lng, radius_m)
         VALUES (1, 'Quán Demo F&B', '123 Nguyễn Huệ, Quận 1, TP.HCM', 10.7769, 106.7009, 50)
         ON CONFLICT DO NOTHING
       `);
 
-      // Admin
       await client.query(`
         INSERT INTO users (
           id, store_id, email, password_hash, role, full_name, phone,
@@ -73,7 +63,6 @@ async function seed(): Promise<void> {
         ) ON CONFLICT (store_id, email) DO UPDATE SET password_hash = $2
       `, [ADMIN_EMAIL, adminHash]);
 
-      // Staff demo
       const staffList = [
         { id: '00000000-0000-0000-0000-000000000002', email: 'nguyen.an@chamcong.local', name: 'Nguyễn Văn An', phone: '0911111111', rate: 30000, leave: 12 },
         { id: '00000000-0000-0000-0000-000000000003', email: 'tran.binh@chamcong.local', name: 'Trần Thị Bình', phone: '0922222222', rate: 30000, leave: 12 },
@@ -90,7 +79,6 @@ async function seed(): Promise<void> {
         `, [staff.id, staff.email, staffHash, staff.name, staff.phone, staff.rate, staff.leave]);
       }
 
-      // Shift templates
       const templates = [
         { id: 'aaaaaaaa-0000-0000-0000-000000000001', name: 'Ca sáng', color: '#6C4CF1', segs: [{ s: '07:00', e: '12:00' }] },
         { id: 'aaaaaaaa-0000-0000-0000-000000000002', name: 'Ca chiều', color: '#4F6BFF', segs: [{ s: '12:00', e: '17:00' }] },

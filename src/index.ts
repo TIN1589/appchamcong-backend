@@ -1,6 +1,3 @@
-/**
- * Entry point — khởi động server với graceful shutdown [10-backend.md]
- */
 import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { logger } from './lib/logger.js';
@@ -16,7 +13,6 @@ async function main(): Promise<void> {
     );
   });
 
-  // ── Graceful shutdown [10-backend.md] ─────────────────────────────────
   async function shutdown(signal: string): Promise<void> {
     logger.info({ signal }, 'Shutting down gracefully...');
     server.close(async () => {
@@ -29,7 +25,6 @@ async function main(): Promise<void> {
       process.exit(0);
     });
 
-    // Force exit nếu không tắt trong 10s
     setTimeout(() => {
       logger.error('Graceful shutdown timeout, forcing exit');
       process.exit(1);
@@ -39,7 +34,6 @@ async function main(): Promise<void> {
   process.on('SIGTERM', () => { void shutdown('SIGTERM'); });
   process.on('SIGINT', () => { void shutdown('SIGINT'); });
 
-  // Unhandled rejection — log và không crash (production)
   process.on('unhandledRejection', (reason) => {
     logger.error({ reason }, 'Unhandled promise rejection');
     if (env.NODE_ENV !== 'production') {

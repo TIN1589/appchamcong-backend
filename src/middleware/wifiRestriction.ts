@@ -1,16 +1,7 @@
-/**
- * WiFi restriction middleware [A3]
- * Chặn request nếu IP không nằm trong ALLOWED_IPS (khi WIFI_RESTRICTION=true)
- * Default: tắt. Bật bằng WIFI_RESTRICTION=true trong .env
- */
 import { type Request, type Response, type NextFunction } from 'express';
 import { env } from '../config/env.js';
 import { AppError, ErrorCode } from '../lib/errors.js';
 
-/**
- * Parse CIDR notation đơn giản (IPv4)
- * VD: 192.168.1.0/24 → check xem IP có trong subnet không
- */
 function ipInCidr(ip: string, cidr: string): boolean {
   const [network, prefixStr] = cidr.split('/');
   if (!network || !prefixStr) return ip === cidr;
@@ -38,10 +29,6 @@ function ipToNum(ip: string): number | null {
   return num >>> 0;
 }
 
-/**
- * Parse danh sách IPs/CIDRs từ env string
- * "192.168.1.0/24,203.0.113.50" → ['192.168.1.0/24', '203.0.113.50']
- */
 function parseAllowedIps(raw: string): string[] {
   return raw
     .split(',')
@@ -56,20 +43,17 @@ export function wifiRestrictionMiddleware(
   _res: Response,
   next: NextFunction,
 ): void {
-  // Nếu tắt feature → cho qua
   if (!env.WIFI_RESTRICTION) {
     next();
     return;
   }
 
-  // Bỏ qua /health — cần thiết cho docker healthcheck
   if (req.path === '/health') {
     next();
     return;
   }
 
   const clientIp = req.ip ?? req.socket.remoteAddress ?? '';
-  // Bỏ IPv6 prefix '::ffff:'
   const normalizedIp = clientIp.replace(/^::ffff:/, '');
 
   const allowed = allowedIps.some(

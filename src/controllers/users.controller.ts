@@ -1,6 +1,3 @@
-/**
- * Users controller
- */
 import { type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
 import { usersService } from '../services/users.service.js';
@@ -33,7 +30,6 @@ const paginationSchema = z.object({
 });
 
 export const usersController = {
-  /** GET /api/users */
   async list(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { page, limit } = paginationSchema.parse(req.query);
@@ -50,7 +46,6 @@ export const usersController = {
     } catch (err) { next(err); }
   },
 
-  /** GET /api/users/:id */
   async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.params['id']!;
@@ -59,7 +54,6 @@ export const usersController = {
     } catch (err) { next(err); }
   },
 
-  /** POST /api/users — Admin only */
   async create(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const body = createUserSchema.parse(req.body);
@@ -76,7 +70,6 @@ export const usersController = {
     } catch (err) { next(err); }
   },
 
-  /** PATCH /api/users/:id */
   async update(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.params['id']!;
@@ -92,7 +85,6 @@ export const usersController = {
     } catch (err) { next(err); }
   },
 
-  /** POST /api/users/:id/face — enroll face descriptor [A7] */
   async enrollFace(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.params['id']!;

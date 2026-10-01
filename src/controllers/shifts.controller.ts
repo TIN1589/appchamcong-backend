@@ -1,6 +1,3 @@
-/**
- * Shifts controller
- */
 import { type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
 import { shiftsService } from '../services/shifts.service.js';
@@ -14,7 +11,7 @@ const segmentSchema = z.object({
 const createTemplateSchema = z.object({
   name: z.string().min(1).max(100),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).default('#6C4CF1'),
-  segments: z.array(segmentSchema).min(1).max(4),  // max 4 segments/ca
+  segments: z.array(segmentSchema).min(1).max(4),
 });
 
 const createShiftSchema = z.object({
@@ -45,7 +42,6 @@ const dateRangeSchema = z.object({
 });
 
 export const shiftsController = {
-  /** GET /api/shifts/templates */
   async listTemplates(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const templates = await shiftsService.listTemplates(req.user!.storeId);
@@ -53,7 +49,6 @@ export const shiftsController = {
     } catch (err) { next(err); }
   },
 
-  /** POST /api/shifts/templates — Admin only */
   async createTemplate(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const body = createTemplateSchema.parse(req.body);
@@ -66,7 +61,6 @@ export const shiftsController = {
     } catch (err) { next(err); }
   },
 
-  /** GET /api/shifts — list theo date range, default tuần hiện tại */
   async list(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const query = dateRangeSchema.parse(req.query);
@@ -75,7 +69,6 @@ export const shiftsController = {
       const startDate = query.startDate ?? currentWeek.startDate;
       const endDate = query.endDate ?? currentWeek.endDate;
 
-      // Staff chỉ thấy ca của mình
       const assignedTo =
         req.user!.role === 'staff' ? req.user!.id : query.assignedTo;
 
@@ -93,7 +86,6 @@ export const shiftsController = {
     } catch (err) { next(err); }
   },
 
-  /** GET /api/shifts/:id */
   async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const shift = await shiftsService.getById(req.params['id']!, req.user!.storeId);
@@ -101,7 +93,6 @@ export const shiftsController = {
     } catch (err) { next(err); }
   },
 
-  /** POST /api/shifts — tạo ca tùy chỉnh, Admin only */
   async create(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const body = createShiftSchema.parse(req.body);
@@ -115,7 +106,6 @@ export const shiftsController = {
     } catch (err) { next(err); }
   },
 
-  /** POST /api/shifts/from-template — tạo ca từ template, Admin only */
   async createFromTemplate(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const body = createShiftFromTemplateSchema.parse(req.body);
@@ -133,7 +123,6 @@ export const shiftsController = {
     } catch (err) { next(err); }
   },
 
-  /** POST /api/shifts/:id/assign — Admin gán ca */
   async assign(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { userId } = assignSchema.parse(req.body);
@@ -142,7 +131,6 @@ export const shiftsController = {
     } catch (err) { next(err); }
   },
 
-  /** DELETE /api/shifts/:id — Admin xóa ca trống */
   async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       await shiftsService.delete(req.params['id']!, req.user!.storeId);

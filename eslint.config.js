@@ -25,23 +25,16 @@ export default [
     },
     rules: {
       ...tseslint.configs['strict-type-checked'].rules,
-      // Cấm any không có comment lý do
       '@typescript-eslint/no-explicit-any': 'error',
-      // Cấm console.log [rules]
       'no-console': 'error',
-      // Cấm catch rỗng [10-backend.md]
       'no-empty': ['error', { allowEmptyCatch: false }],
       '@typescript-eslint/no-empty-function': 'error',
-      // Cấm floating promise
       '@typescript-eslint/no-floating-promises': 'error',
-      // Cấm unused vars
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-      // Require explicit return types
       '@typescript-eslint/explicit-function-return-type': ['warn', {
         allowExpressions: true,
         allowTypedFunctionExpressions: true,
       }],
-      // Tắt cảnh báo non-null assertion vì auth middleware đã check
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/restrict-template-expressions': 'off',
       '@typescript-eslint/require-await': 'off',
@@ -55,7 +48,6 @@ export default [
   {
     files: ['**/*.test.ts'],
     rules: {
-      // Test files có thể dùng any trong mock
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-argument': 'off',

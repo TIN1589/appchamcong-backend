@@ -1,14 +1,9 @@
-/**
- * PostgreSQL connection pool [10-backend.md]
- * Dùng pg Pool, không hardcode credentials
- */
 import pg from 'pg';
 import { env } from '../config/env.js';
 import { logger } from '../lib/logger.js';
 
 const { Pool } = pg;
 
-// Nhận diện kết nối Supabase (yêu cầu SSL) hoặc khi có cờ POSTGRES_SSL
 const isSupabase =
   (env.DATABASE_URL && env.DATABASE_URL.includes('supabase')) ||
   (env.POSTGRES_HOST && env.POSTGRES_HOST.includes('supabase')) ||
@@ -40,15 +35,10 @@ const poolConfig: pg.PoolConfig = env.DATABASE_URL
 
 export const db = new Pool(poolConfig);
 
-// Log connection errors
 db.on('error', (err) => {
   logger.error({ err }, 'PostgreSQL pool error');
 });
 
-/**
- * Helper: run query với parameterized values (tránh SQL injection)
- * Luôn dùng hàm này, không tự concatenate SQL string [10-backend.md]
- */
 export async function query<T extends pg.QueryResultRow>(
   sql: string,
   params?: unknown[],
@@ -56,10 +46,6 @@ export async function query<T extends pg.QueryResultRow>(
   return db.query<T>(sql, params);
 }
 
-/**
- * Helper: transaction wrapper
- * Chạy callback trong 1 transaction, auto rollback nếu có lỗi
- */
 export async function withTransaction<T>(
   callback: (client: pg.PoolClient) => Promise<T>,
 ): Promise<T> {
@@ -77,9 +63,6 @@ export async function withTransaction<T>(
   }
 }
 
-/**
- * Health check — dùng cho /health endpoint
- */
 export async function checkDbConnection(): Promise<boolean> {
   try {
     await db.query('SELECT 1');

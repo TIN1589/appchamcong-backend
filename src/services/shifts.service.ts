@@ -1,18 +1,10 @@
-/**
- * Shifts service — business logic cho ca làm việc
- */
 import { shiftsRepository } from '../repositories/shifts.repository.js';
 import { NotFoundError, AppError, ErrorCode, ConflictError } from '../lib/errors.js';
 
 import type { ShiftWithSegments, TemplateWithSegments } from '../repositories/shifts.repository.js';
 import type { PaginatedResult, PaginationParams, ShiftStatus } from '../types/db.js';
 
-/**
- * Parse 'YYYY-MM-DD' và 'HH:mm' thành Date (Asia/Ho_Chi_Minh) [A5]
- * Trả UTC Date để lưu vào DB (timestamptz)
- */
 function buildSegmentTime(workDate: string, timeStr: string): Date {
-  // workDate: '2026-10-05', timeStr: '10:00'
   const [y, m, d] = workDate.split('-').map(Number);
   const [h, min] = timeStr.split(':').map(Number);
 
@@ -20,20 +12,16 @@ function buildSegmentTime(workDate: string, timeStr: string): Date {
     throw new AppError(ErrorCode.VALIDATION_ERROR, 'Định dạng ngày/giờ không hợp lệ', 400);
   }
 
-  // Tạo date trong Asia/Ho_Chi_Minh timezone bằng cách tính offset
-  // VN timezone = UTC+7 → trừ 7h để ra UTC
   const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
   const localMs = Date.UTC(y, m - 1, d, h, min, 0, 0);
   return new Date(localMs - VN_OFFSET_MS);
 }
 
 export const shiftsService = {
-  /** List shift templates */
   async listTemplates(storeId: number): Promise<TemplateWithSegments[]> {
     return shiftsRepository.listTemplates(storeId);
   },
 
-  /** Tạo shift template */
   async createTemplate(
     storeId: number,
     createdBy: string,
@@ -47,7 +35,6 @@ export const shiftsService = {
       throw new AppError(ErrorCode.VALIDATION_ERROR, 'Template phải có ít nhất 1 segment', 400);
     }
 
-    // Validate segments format
     const timeRegex = /^\d{2}:\d{2}$/;
     for (const seg of data.segments) {
       if (!timeRegex.test(seg.startTime) || !timeRegex.test(seg.endTime)) {
@@ -58,7 +45,6 @@ export const shiftsService = {
       }
     }
 
-    // Không có ca qua đêm [A5]
     for (const seg of data.segments) {
       if (seg.startTime >= seg.endTime) {
         throw new AppError(ErrorCode.VALIDATION_ERROR, 'Không hỗ trợ ca qua đêm', 400);
@@ -76,7 +62,6 @@ export const shiftsService = {
     });
   },
 
-  /** Tạo ca từ template */
   async createFromTemplate(
     storeId: number,
     createdBy: string,
@@ -91,7 +76,6 @@ export const shiftsService = {
     const template = templates.find((t) => t.id === data.templateId);
     if (!template) throw new NotFoundError('Shift template');
 
-    // Build segments với timestamptz thực tế
     const segments = template.segments.map((seg, i) => ({
       startsAt: buildSegmentTime(data.workDate, seg.start_time),
       endsAt: buildSegmentTime(data.workDate, seg.end_time),
@@ -107,7 +91,6 @@ export const shiftsService = {
     });
   },
 
-  /** Tạo ca tùy chỉnh (không dùng template) */
   async create(
     storeId: number,
     createdBy: string,
@@ -146,14 +129,12 @@ export const shiftsService = {
     });
   },
 
-  /** Lấy ca theo id */
   async getById(shiftId: string, storeId: number): Promise<ShiftWithSegments> {
     const shift = await shiftsRepository.findById(shiftId, storeId);
     if (!shift) throw new NotFoundError('Ca làm việc');
     return shift;
   },
 
-  /** List ca theo tuần hiện tại hoặc tùy chọn */
   async listByDateRange(
     storeId: number,
     startDate: string,
@@ -167,7 +148,6 @@ export const shiftsService = {
     return shiftsRepository.listByDateRange(storeId, startDate, endDate, pagination, filters);
   },
 
-  /** Gán ca cho nhân viên */
   async assign(
     shiftId: string,
     storeId: number,
@@ -185,7 +165,6 @@ export const shiftsService = {
     return full;
   },
 
-  /** Xóa ca (chỉ ca trống, Admin only) */
   async delete(shiftId: string, storeId: number): Promise<void> {
     const deleted = await shiftsRepository.delete(shiftId, storeId);
     if (!deleted) {

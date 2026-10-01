@@ -1,13 +1,8 @@
-/**
- * Structured logger dùng pino [10-backend.md]
- * Log có request id, không log password/token/face descriptor
- */
 import pino from 'pino';
 import { env } from '../config/env.js';
 
 export const logger = pino({
   level: env.NODE_ENV === 'production' ? 'info' : 'debug',
-  // Redact sensitive fields — KHÔNG log password/token/face descriptor [10-backend.md]
   redact: {
     paths: [
       'password',
@@ -31,7 +26,6 @@ export const logger = pino({
     req: pino.stdSerializers.req,
     res: pino.stdSerializers.res,
   },
-  // Pretty print chỉ ở dev — dùng spread để tránh exactOptionalPropertyTypes lỗi
   ...(env.NODE_ENV === 'development'
     ? {
         transport: {

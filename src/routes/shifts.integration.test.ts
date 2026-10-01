@@ -1,15 +1,3 @@
-/**
- * Shifts Integration Tests — [30-testing.md]
- *
- * Kiểm tra theo rule 30-testing.md:
- * - Luồng tạo ca (POST /api/shifts): validation schema, RBAC
- * - Luồng gán ca (POST /api/shifts/:id/assign): RBAC, conflict race condition
- * - RBAC: staff không được tạo/gán ca
- * - Validation: thiếu fields bắt buộc → 400
- * - Race condition guard: ca đã gán → 409 Conflict
- *
- * NOTE: Không dùng DB thật — mock shiftsService hoàn toàn.
- */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import express from 'express';
@@ -18,10 +6,8 @@ import { shiftsRouter } from './shifts.js';
 import { errorHandler } from '../lib/errors.js';
 import { shiftsService } from '../services/shifts.service.js';
 import type { ShiftWithSegments } from '../repositories/shifts.repository.js';
-
 import jwt from 'jsonwebtoken';
 
-// ─── Mock jwt để giả lập authenticated user ──────────────────────────────────
 vi.mock('jsonwebtoken', async () => {
   const actual = await vi.importActual<typeof import('jsonwebtoken')>('jsonwebtoken');
   return {
@@ -33,7 +19,6 @@ vi.mock('jsonwebtoken', async () => {
   };
 });
 
-// ─── Mock shiftsService — không chạm DB ──────────────────────────────────────
 vi.mock('../services/shifts.service.js', () => ({
   shiftsService: {
     create: vi.fn(),
@@ -47,14 +32,12 @@ vi.mock('../services/shifts.service.js', () => ({
   },
 }));
 
-// ─── Shared Express app ───────────────────────────────────────────────────────
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
 app.use('/api/shifts', shiftsRouter);
 app.use(errorHandler);
 
-// ─── JWT token mock helpers ───────────────────────────────────────────────────
 function mockAdmin() {
   vi.mocked(jwt.verify).mockReturnValue({
     sub: 'admin-uuid',
@@ -75,7 +58,6 @@ function mockStaff(userId = 'staff-uuid') {
   } as unknown as ReturnType<typeof jwt.verify>);
 }
 
-// Shift stub trả về từ service
 const shiftStub: ShiftWithSegments = {
   id: 'shift-uuid-1',
   store_id: 1,
@@ -91,14 +73,13 @@ const shiftStub: ShiftWithSegments = {
     {
       id: 'seg-1',
       shift_id: 'shift-uuid-1',
-      starts_at: new Date('2026-10-06T01:00:00Z'),  // 08:00 VN
-      ends_at: new Date('2026-10-06T10:00:00Z'),    // 17:00 VN
+      starts_at: new Date('2026-10-06T01:00:00Z'),
+      ends_at: new Date('2026-10-06T10:00:00Z'),
       sort_order: 0,
     },
   ],
 };
 
-// ─── POST /api/shifts — Tạo ca ────────────────────────────────────────────────
 describe('POST /api/shifts — Tạo ca làm việc', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -154,7 +135,7 @@ describe('POST /api/shifts — Tạo ca làm việc', () => {
       .post('/api/shifts')
       .set('Authorization', 'Bearer dummy')
       .send({
-        workDate: '06-10-2026',  // wrong format
+        workDate: '06-10-2026',
         segments: [{ startTime: '08:00', endTime: '17:00' }],
       });
 
@@ -201,7 +182,6 @@ describe('POST /api/shifts — Tạo ca làm việc', () => {
   });
 });
 
-// ─── POST /api/shifts/:id/assign — Gán ca ────────────────────────────────────
 describe('POST /api/shifts/:id/assign — Gán ca cho nhân viên', () => {
   const SHIFT_ID = '550e8400-e29b-41d4-a716-446655440001';
   const STAFF_ID = '550e8400-e29b-41d4-a716-446655440002';
@@ -263,7 +243,6 @@ describe('POST /api/shifts/:id/assign — Gán ca cho nhân viên', () => {
 
   it('[RACE CONDITION] Ca đã được gán bởi request khác → service throw ConflictError → 409', async () => {
     mockAdmin();
-    // Simulate race condition: assignToUser trả null → service ném ConflictError
     const { ConflictError, ErrorCode } = await import('../lib/errors.js');
     vi.mocked(shiftsService.assign).mockRejectedValue(
       new ConflictError(ErrorCode.SHIFT_NOT_OPEN, 'Ca này không còn trống hoặc không tồn tại'),
@@ -288,7 +267,6 @@ describe('POST /api/shifts/:id/assign — Gán ca cho nhân viên', () => {
       'Ca này không còn trống hoặc không tồn tại',
     );
 
-    // First call succeeds, second fails (race condition simulation)
     vi.mocked(shiftsService.assign)
       .mockResolvedValueOnce(assignedShift)
       .mockRejectedValueOnce(conflict);
@@ -309,7 +287,6 @@ describe('POST /api/shifts/:id/assign — Gán ca cho nhân viên', () => {
   });
 });
 
-// ─── GET /api/shifts — Danh sách ca ──────────────────────────────────────────
 describe('GET /api/shifts — Danh sách ca', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -355,11 +332,10 @@ describe('GET /api/shifts — Danh sách ca', () => {
       .get('/api/shifts')
       .set('Authorization', 'Bearer dummy');
 
-    // Controller phải truyền assignedTo = staffId khi role === 'staff'
     expect(shiftsService.listByDateRange).toHaveBeenCalledWith(
-      1,           // storeId
-      expect.any(String),  // startDate (tuần hiện tại)
-      expect.any(String),  // endDate
+      1,
+      expect.any(String),
+      expect.any(String),
       expect.objectContaining({ page: 1, limit: 50 }),
       expect.objectContaining({ assignedTo: staffId }),
     );
