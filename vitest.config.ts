@@ -11,9 +11,7 @@ export default defineConfig({
       reporter: ['text', 'lcov'],
       exclude: ['src/index.ts', 'src/types/**', 'src/db/migrations/**'],
     },
-    // Isolate mỗi test file
     isolate: true,
-    // Timeout 10s cho integration tests
     testTimeout: 10000,
   },
   resolve: {

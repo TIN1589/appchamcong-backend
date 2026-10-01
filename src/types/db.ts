@@ -1,8 +1,3 @@
-/**
- * TypeScript types cho database rows
- * Reflect đúng schema trong migration 001
- */
-
 export type UserRole = 'admin' | 'staff';
 export type ShiftStatus = 'open' | 'assigned' | 'completed' | 'cancelled';
 export type AttendanceStatus = 'present' | 'late' | 'early_leave' | 'absent' | 'pending';
@@ -29,18 +24,17 @@ export interface User {
   role: UserRole;
   full_name: string;
   phone: string | null;
-  hourly_rate: bigint;          // bigint VND [10-backend.md]
-  ot_rate_multiplier: string;   // NUMERIC từ pg trả về string
+  hourly_rate: bigint;
+  ot_rate_multiplier: string;
   leave_balance: number;
   must_change_password: boolean;
   is_active: boolean;
-  face_descriptor: number[] | null;  // Float32Array[128] lưu JSON
+  face_descriptor: number[] | null;
   telegram_chat_id: string | null;
   created_at: Date;
   updated_at: Date;
 }
 
-// User không có password — dùng khi trả response
 export type SafeUser = Omit<User, 'password_hash' | 'face_descriptor'>;
 
 export interface RefreshToken {
@@ -65,7 +59,7 @@ export interface ShiftTemplate {
 export interface ShiftTemplateSegment {
   id: string;
   template_id: string;
-  start_time: string;  // 'HH:mm' format
+  start_time: string;
   end_time: string;
   sort_order: number;
 }
@@ -76,7 +70,7 @@ export interface Shift {
   template_id: string | null;
   assigned_to: string | null;
   status: ShiftStatus;
-  work_date: Date;   // DATE từ pg
+  work_date: Date;
   notes: string | null;
   created_by: string;
   created_at: Date;
@@ -86,7 +80,7 @@ export interface Shift {
 export interface ShiftSegment {
   id: string;
   shift_id: string;
-  starts_at: Date;  // TIMESTAMPTZ
+  starts_at: Date;
   ends_at: Date;
   sort_order: number;
 }
@@ -170,7 +164,6 @@ export interface Payroll {
   updated_at: Date;
 }
 
-// ─── Pagination ────────────────────────────────────────────────────────────
 export interface PaginationParams {
   page: number;
   limit: number;

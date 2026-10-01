@@ -1,10 +1,6 @@
-/**
- * Unit tests: WiFi restriction middleware [A3]
- */
 import { describe, it, expect, vi } from 'vitest';
 import type { Request, Response, NextFunction } from 'express';
 
-// Mock env trước khi import middleware
 vi.mock('../config/env.js', () => ({
   env: {
     WIFI_RESTRICTION: true,
@@ -48,7 +44,7 @@ describe('wifiRestrictionMiddleware', () => {
       makeRes() as Response,
       next,
     );
-    expect(next).toHaveBeenCalledWith();  // no error
+    expect(next).toHaveBeenCalledWith();
   });
 
   it('blocks IP outside CIDR range', () => {

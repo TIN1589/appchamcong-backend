@@ -1,14 +1,9 @@
-/**
- * JWT auth middleware — verify access token và attach user vào req [10-backend.md]
- * RBAC: requireRole('admin') hoặc requireRole('staff', 'admin')
- */
 import { type Request, type Response, type NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
 import { UnauthorizedError, ForbiddenError, AppError, ErrorCode } from '../lib/errors.js';
 import type { UserRole } from '../types/db.js';
 
-// Extend Express Request để thêm user
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
@@ -24,27 +19,21 @@ declare global {
 }
 
 export interface JwtPayload {
-  sub: string;      // user id
+  sub: string;
   storeId: number;
   role: UserRole;
   mustChangePassword: boolean;
   type: 'access';
 }
 
-/**
- * Verify access token từ Authorization header hoặc httpOnly cookie
- * Ưu tiên cookie (httpOnly, bảo mật hơn) [20-frontend.md]
- */
 export function authenticate(req: Request, _res: Response, next: NextFunction): void {
   let token: string | undefined;
 
-  // 1. Thử httpOnly cookie trước
   const cookieToken = req.cookies['access_token'] as string | undefined;
   if (cookieToken) {
     token = cookieToken;
   }
 
-  // 2. Fallback: Authorization header Bearer
   if (!token) {
     const authHeader = req.headers.authorization;
     if (authHeader?.startsWith('Bearer ')) {
@@ -82,10 +71,6 @@ export function authenticate(req: Request, _res: Response, next: NextFunction): 
   }
 }
 
-/**
- * RBAC: chỉ cho phép role trong danh sách
- * Phải dùng sau authenticate middleware
- */
 export function requireRole(...roles: UserRole[]) {
   return (req: Request, _res: Response, next: NextFunction): void => {
     if (!req.user) {
@@ -102,10 +87,6 @@ export function requireRole(...roles: UserRole[]) {
   };
 }
 
-/**
- * Chặn endpoint nếu user chưa đổi mật khẩu lần đầu [10-backend.md]
- * Chỉ cho phép access /api/auth/change-password
- */
 export function requirePasswordChanged(
   req: Request,
   _res: Response,
@@ -130,10 +111,6 @@ export function requirePasswordChanged(
   next();
 }
 
-/**
- * Ownership check: Staff chỉ được thao tác với data của mình [10-backend.md]
- * Admin bypass
- */
 export function requireOwnershipOrAdmin(
   getUserIdFromReq: (req: Request) => string,
 ) {

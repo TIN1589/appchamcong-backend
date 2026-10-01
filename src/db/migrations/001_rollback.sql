@@ -1,11 +1,5 @@
--- ═══════════════════════════════════════════════════════════════════════════
--- Migration 001 Rollback
--- Version: 001
--- ═══════════════════════════════════════════════════════════════════════════
-
 BEGIN;
 
--- Drop triggers
 DO $$
 DECLARE t TEXT;
 BEGIN
@@ -20,7 +14,6 @@ $$;
 
 DROP FUNCTION IF EXISTS set_updated_at();
 
--- Drop tables theo thứ tự ngược (FK dependencies)
 DROP TABLE IF EXISTS payroll;
 DROP TABLE IF EXISTS leaves;
 DROP TABLE IF EXISTS swap_requests;
@@ -33,7 +26,6 @@ DROP TABLE IF EXISTS refresh_tokens;
 DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS stores;
 
--- Drop types
 DROP TYPE IF EXISTS payroll_status;
 DROP TYPE IF EXISTS leave_status;
 DROP TYPE IF EXISTS swap_status;

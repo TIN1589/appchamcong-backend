@@ -1,46 +1,33 @@
-/**
- * Custom error classes + error handler tập trung [10-backend.md]
- * Trả {code, message} ổn định. Không nuốt lỗi.
- */
 import { type Request, type Response, type NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { logger } from './logger.js';
 
-// ─── Error codes ───────────────────────────────────────────────────────────
 export const ErrorCode = {
-  // Auth
   UNAUTHORIZED: 'UNAUTHORIZED',
   FORBIDDEN: 'FORBIDDEN',
   INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
   TOKEN_EXPIRED: 'TOKEN_EXPIRED',
   TOKEN_INVALID: 'TOKEN_INVALID',
   MUST_CHANGE_PASSWORD: 'MUST_CHANGE_PASSWORD',
-  // User
   USER_NOT_FOUND: 'USER_NOT_FOUND',
   USER_INACTIVE: 'USER_INACTIVE',
   EMAIL_ALREADY_EXISTS: 'EMAIL_ALREADY_EXISTS',
-  // Shift
   SHIFT_NOT_FOUND: 'SHIFT_NOT_FOUND',
   SHIFT_ALREADY_ASSIGNED: 'SHIFT_ALREADY_ASSIGNED',
   SHIFT_NOT_OPEN: 'SHIFT_NOT_OPEN',
-  // Swap [10-backend.md]
   SWAP_LT_48H: 'SWAP_LT_48H',
   SWAP_RECEIVER_OVERLAP: 'SWAP_RECEIVER_OVERLAP',
   SWAP_NOT_CURRENT_WEEK: 'SWAP_NOT_CURRENT_WEEK',
   SWAP_NOT_FOUND: 'SWAP_NOT_FOUND',
   SWAP_INVALID_STATUS: 'SWAP_INVALID_STATUS',
-  // Leave
   LEAVE_NOT_FOUND: 'LEAVE_NOT_FOUND',
   LEAVE_INSUFFICIENT_BALANCE: 'LEAVE_INSUFFICIENT_BALANCE',
-  // Attendance
   ATTENDANCE_ALREADY_CHECKED_IN: 'ATTENDANCE_ALREADY_CHECKED_IN',
   ATTENDANCE_NOT_CHECKED_IN: 'ATTENDANCE_NOT_CHECKED_IN',
   ATTENDANCE_GPS_TOO_FAR: 'ATTENDANCE_GPS_TOO_FAR',
   ATTENDANCE_FACE_MISMATCH: 'ATTENDANCE_FACE_MISMATCH',
   ATTENDANCE_NO_DESCRIPTOR: 'ATTENDANCE_NO_DESCRIPTOR',
-  // Payroll
   PAYROLL_ALREADY_FINALIZED: 'PAYROLL_ALREADY_FINALIZED',
-  // Generic
   VALIDATION_ERROR: 'VALIDATION_ERROR',
   NOT_FOUND: 'NOT_FOUND',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
@@ -51,7 +38,6 @@ export const ErrorCode = {
 
 export type ErrorCodeType = (typeof ErrorCode)[keyof typeof ErrorCode];
 
-// ─── AppError base class ───────────────────────────────────────────────────
 export class AppError extends Error {
   constructor(
     public readonly code: ErrorCodeType,
@@ -61,12 +47,10 @@ export class AppError extends Error {
   ) {
     super(message);
     this.name = 'AppError';
-    // Fix prototype chain cho instanceof check
     Object.setPrototypeOf(this, AppError.prototype);
   }
 }
 
-// ─── Convenience subclasses ────────────────────────────────────────────────
 export class BadRequestError extends AppError {
   constructor(code: ErrorCodeType, message: string, details?: unknown) {
     super(code, message, 400, details);
@@ -107,7 +91,6 @@ export class ConflictError extends AppError {
   }
 }
 
-// ─── Error handler middleware (đặt cuối app) ──────────────────────────────
 export function errorHandler(
   err: unknown,
   req: Request,
@@ -117,7 +100,6 @@ export function errorHandler(
 ): void {
   const requestId = (req.headers['x-request-id'] as string | undefined) ?? 'unknown';
 
-  // Zod validation error
   if (err instanceof ZodError) {
     const details = err.issues.map((i) => ({
       field: i.path.join('.'),
@@ -132,9 +114,7 @@ export function errorHandler(
     return;
   }
 
-  // AppError (business logic errors)
   if (err instanceof AppError) {
-    // Log 5xx errors with stack, 4xx chỉ log warn
     if (err.statusCode >= 500) {
       logger.error({ requestId, code: err.code, err }, 'Application error');
     } else {
@@ -148,7 +128,6 @@ export function errorHandler(
     return;
   }
 
-  // Unknown errors — che thông tin nội bộ
   logger.error({ requestId, err }, 'Unhandled error');
   res.status(500).json({
     code: ErrorCode.INTERNAL_ERROR,
@@ -156,7 +135,6 @@ export function errorHandler(
   });
 }
 
-// ─── 404 handler ──────────────────────────────────────────────────────────
 export function notFoundHandler(req: Request, res: Response): void {
   res.status(404).json({
     code: ErrorCode.NOT_FOUND,

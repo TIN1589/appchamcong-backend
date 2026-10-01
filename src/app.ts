@@ -1,6 +1,3 @@
-/**
- * Express app setup — tách với index.ts để dễ test (supertest)
- */
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -22,7 +19,6 @@ import { wifiRestrictionMiddleware } from './middleware/wifiRestriction.js';
 export function createApp(): express.Application {
   const app = express();
 
-  // ── Security headers [10-backend.md] ───────────────────────────────────
   app.use(
     helmet({
       contentSecurityPolicy: {
@@ -31,30 +27,27 @@ export function createApp(): express.Application {
           scriptSrc: ["'self'"],
           styleSrc: ["'self'", "'unsafe-inline'"],
           imgSrc: ["'self'", 'data:', 'blob:'],
-          mediaSrc: ["'self'", 'blob:'],  // camera
-          connectSrc: ["'self'", 'wss:'],  // WebSocket
-          workerSrc: ["'self'", 'blob:'],  // Service Worker
+          mediaSrc: ["'self'", 'blob:'],
+          connectSrc: ["'self'", 'wss:'],
+          workerSrc: ["'self'", 'blob:'],
         },
       },
       crossOriginOpenerPolicy: { policy: 'same-origin' },
     }),
   );
 
-  // ── CORS — whitelist only [10-backend.md] ──────────────────────────────
   app.use(
     cors({
       origin: env.CORS_ORIGIN,
-      credentials: true,  // httpOnly cookie [20-frontend.md]
+      credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
       exposedHeaders: ['X-Request-Id'],
     }),
   );
 
-  // ── Trust proxy (Caddy) ────────────────────────────────────────────────
   app.set('trust proxy', 1);
 
-  // ── Request ID ────────────────────────────────────────────────────────
   app.use((req, res, next) => {
     const requestId =
       (req.headers['x-request-id'] as string | undefined) ?? randomUUID();
@@ -63,36 +56,29 @@ export function createApp(): express.Application {
     next();
   });
 
-  // ── Structured logging ─────────────────────────────────────────────────
   app.use(
     pinoHttp({
       logger,
       customProps: (req) => ({
         requestId: req.headers['x-request-id'],
       }),
-      // Không log /health để tránh noise
       autoLogging: {
         ignore: (req) => req.url === '/health',
       },
     }),
   );
 
-  // ── Compression ────────────────────────────────────────────────────────
   app.use(compression());
 
-  // ── Body parsers ───────────────────────────────────────────────────────
   app.use(express.json({ limit: '512kb' }));
   app.use(express.urlencoded({ extended: false, limit: '128kb' }));
   app.use(cookieParser());
 
-  // ── WiFi restriction [A3] ──────────────────────────────────────────────
   app.use(wifiRestrictionMiddleware);
 
-  // ── Rate limiting [10-backend.md] ─────────────────────────────────────
-  // Global rate limit
   app.use(
     rateLimit({
-      windowMs: 15 * 60 * 1000,  // 15 phút
+      windowMs: 15 * 60 * 1000,
       max: 500,
       standardHeaders: true,
       legacyHeaders: false,
@@ -100,9 +86,6 @@ export function createApp(): express.Application {
     }),
   );
 
-
-
-  // ── Health check ───────────────────────────────────────────────────────
   app.get('/health', async (_req, res) => {
     const dbOk = await checkDbConnection();
     const status = dbOk ? 'ok' : 'degraded';
@@ -114,15 +97,12 @@ export function createApp(): express.Application {
     });
   });
 
-  // ── API routes ─────────────────────────────────────────────────────────
   app.use('/api/auth', authRouter);
   app.use('/api/users', usersRouter);
   app.use('/api/shifts', shiftsRouter);
 
-  // ── 404 handler ────────────────────────────────────────────────────────
   app.use(notFoundHandler);
 
-  // ── Error handler (phải ở cuối cùng) ──────────────────────────────────
   app.use(errorHandler);
 
   return app;

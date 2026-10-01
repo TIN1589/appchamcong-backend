@@ -1,11 +1,4 @@
-/**
- * Unit tests: Euclidean distance / face verification [A7]
- */
 import { describe, it, expect } from 'vitest';
-
-// Test pure logic — không cần mock DB
-// usersService.verifyFace gọi internal Euclidean distance
-// Tách logic ra hàm testable
 
 function euclideanDistance(a: number[], b: number[]): number {
   if (a.length !== b.length) throw new Error('Length mismatch');
@@ -17,14 +10,12 @@ function euclideanDistance(a: number[], b: number[]): number {
   return Math.sqrt(sum);
 }
 
-// Threshold 0.6 theo face-api.js docs
 const THRESHOLD = 0.6;
 
 function isSamePerson(stored: number[], incoming: number[]): boolean {
   return euclideanDistance(stored, incoming) < THRESHOLD;
 }
 
-// Tạo descriptor giả 128-d
 function zeros(): number[] { return Array(128).fill(0) as number[]; }
 function ones(): number[] { return Array(128).fill(1) as number[]; }
 function similar(base: number[], noise: number): number[] {
@@ -38,7 +29,6 @@ describe('euclideanDistance', () => {
   });
 
   it('distance between zeros and ones', () => {
-    // sqrt(128 * 1^2) = sqrt(128) ≈ 11.31
     const d = euclideanDistance(zeros(), ones());
     expect(d).toBeCloseTo(Math.sqrt(128), 5);
   });
@@ -63,7 +53,6 @@ describe('face verification (Euclidean ≤ 0.6 = match)', () => {
   it('very similar descriptors (noise=0.05) = match', () => {
     const base = similar(zeros(), 0.3);
     const incoming = base.map((v) => v + (Math.random() - 0.5) * 0.05);
-    // Distance sẽ rất nhỏ
     expect(euclideanDistance(base, incoming)).toBeLessThan(THRESHOLD);
     expect(isSamePerson(base, incoming)).toBe(true);
   });
@@ -71,20 +60,15 @@ describe('face verification (Euclidean ≤ 0.6 = match)', () => {
   it('completely different descriptors = no match', () => {
     const storedPerson = similar(zeros(), 0.3);
     const differentPerson = similar(ones(), 0.3);
-    // Distance ≈ sqrt(128) ≈ 11.31 → no match
     expect(euclideanDistance(storedPerson, differentPerson)).toBeGreaterThan(THRESHOLD);
     expect(isSamePerson(storedPerson, differentPerson)).toBe(false);
   });
 
   it('threshold boundary: distance > 0.6 = no match', () => {
     const stored = zeros();
-    // Construct incoming such that distance is clearly above 0.6
-    // d = sqrt(128 * x^2) > 0.6 → x > 0.6 / sqrt(128) ≈ 0.053
-    // Use x = 0.0531 to ensure distance > 0.6 regardless of float precision
     const x = 0.0531;
     const incoming = stored.map((v) => v + x);
     const d = euclideanDistance(stored, incoming);
-    // d = sqrt(128 * 0.0531^2) = 0.0531 * 11.314 ≈ 0.6008 > 0.6
     expect(d).toBeGreaterThan(0.6);
     expect(isSamePerson(stored, incoming)).toBe(false);
   });

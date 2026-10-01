@@ -1,6 +1,3 @@
-/**
- * Shifts repository — CRUD ca làm việc [10-backend.md]
- */
 import { query, withTransaction } from '../db/client.js';
 import type {
   Shift,
@@ -12,21 +9,15 @@ import type {
   PaginationParams,
 } from '../types/db.js';
 
-
-// Full shift với segments
 export interface ShiftWithSegments extends Shift {
   segments: ShiftSegment[];
 }
 
-// Template với segments
 export interface TemplateWithSegments extends ShiftTemplate {
   segments: ShiftTemplateSegment[];
 }
 
 export const shiftsRepository = {
-  // ─── Shift Templates ────────────────────────────────────────────────────
-
-  /** List templates của store */
   async listTemplates(storeId: number): Promise<TemplateWithSegments[]> {
     const templatesResult = await query<ShiftTemplate>(
       'SELECT * FROM shift_templates WHERE store_id = $1 ORDER BY name',
@@ -43,7 +34,6 @@ export const shiftsRepository = {
       [templateIds],
     );
 
-    // Group segments by template_id — tránh N+1 [10-backend.md]
     const segsByTemplate = new Map<string, ShiftTemplateSegment[]>();
     for (const seg of segsResult.rows) {
       const arr = segsByTemplate.get(seg.template_id) ?? [];
@@ -57,7 +47,6 @@ export const shiftsRepository = {
     }));
   },
 
-  /** Tạo template với segments trong 1 transaction */
   async createTemplate(
     storeId: number,
     createdBy: string,
@@ -93,9 +82,6 @@ export const shiftsRepository = {
     });
   },
 
-  // ─── Shifts ─────────────────────────────────────────────────────────────
-
-  /** Tìm shift theo id */
   async findById(shiftId: string, storeId: number): Promise<ShiftWithSegments | null> {
     const shiftResult = await query<Shift>(
       'SELECT * FROM shifts WHERE id = $1 AND store_id = $2',
@@ -112,10 +98,9 @@ export const shiftsRepository = {
     return { ...shift, segments: segsResult.rows };
   },
 
-  /** List shifts theo date range, có phân trang */
   async listByDateRange(
     storeId: number,
-    startDate: string,  // 'YYYY-MM-DD'
+    startDate: string,
     endDate: string,
     pagination: PaginationParams,
     filters?: {
@@ -162,7 +147,6 @@ export const shiftsRepository = {
       return { data: [], total: 0, page, limit, totalPages: 0 };
     }
 
-    // Fetch all segments in 1 query — tránh N+1 [10-backend.md]
     const shiftIds = shiftsResult.rows.map((s) => s.id);
     const segsResult = await query<ShiftSegment>(
       'SELECT * FROM shift_segments WHERE shift_id = ANY($1::uuid[]) ORDER BY shift_id, sort_order',
@@ -190,14 +174,13 @@ export const shiftsRepository = {
     };
   },
 
-  /** Tạo shift với segments trong 1 transaction */
   async create(
     storeId: number,
     createdBy: string,
     data: {
       templateId?: string;
       assignedTo?: string;
-      workDate: string;  // 'YYYY-MM-DD'
+      workDate: string;
       notes?: string;
       segments: Array<{
         startsAt: Date;
@@ -240,14 +223,12 @@ export const shiftsRepository = {
     });
   },
 
-  /** Gán ca cho nhân viên — SELECT FOR UPDATE để tránh race condition [10-backend.md] */
   async assignToUser(
     shiftId: string,
     storeId: number,
     userId: string,
   ): Promise<Shift | null> {
     return withTransaction(async (client) => {
-      // Lock row để tránh 2 người cùng nhận 1 ca
       const lockResult = await client.query<Shift>(
         `SELECT * FROM shifts WHERE id = $1 AND store_id = $2 FOR UPDATE`,
         [shiftId, storeId],
@@ -264,7 +245,6 @@ export const shiftsRepository = {
     });
   },
 
-  /** Xóa ca (chỉ ca ở trạng thái 'open') */
   async delete(shiftId: string, storeId: number): Promise<boolean> {
     const result = await query(
       `DELETE FROM shifts
@@ -274,11 +254,6 @@ export const shiftsRepository = {
     return (result.rowCount ?? 0) > 0;
   },
 
-  /**
-   * Kiểm tra overlap ca cho user [A6]
-   * Dùng cho validate đổi ca (Phase 3)
-   * Trả true nếu user có ca trùng với bất kỳ segment nào
-   */
   async hasOverlap(
     userId: string,
     storeId: number,

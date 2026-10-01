@@ -1,22 +1,14 @@
-/**
- * Database migration script
- * Chạy: npm run migrate          → apply tất cả migrations chưa chạy
- *       npm run migrate:rollback → rollback migration cuối
- *
- * Dùng bảng schema_migrations để track version
- */
 import pg from 'pg';
 import fs from 'fs';
 import path from 'path';
 
-// Tự động nạp .env nếu chạy local ngoài docker (Node 20+)
 try {
   process.loadEnvFile?.('.env');
 } catch {
   try {
     process.loadEnvFile?.('../.env');
   } catch {
-    // Không có file .env
+    // Bỏ qua lỗi khi không có file .env trong container
   }
 }
 
@@ -25,7 +17,6 @@ const isSupabase =
   process.env['POSTGRES_HOST']?.includes('supabase') ||
   process.env['POSTGRES_SSL'] === 'true';
 
-// Load env trực tiếp (không qua src/config/env.ts để tránh circular)
 const DB_CONFIG: pg.ClientConfig = process.env['DATABASE_URL']
   ? {
       connectionString: process.env['DATABASE_URL'],
@@ -70,7 +61,6 @@ async function runMigrations(): Promise<void> {
     await ensureMigrationsTable(client);
     const applied = await getAppliedMigrations(client);
 
-    // Lấy tất cả migration files (chỉ _up_, bỏ _rollback_)
     const files = fs
       .readdirSync(MIGRATIONS_DIR)
       .filter((f) => f.endsWith('.sql') && !f.includes('rollback'))

@@ -1,13 +1,8 @@
-/**
- * Auth controller — parse/validate input, gọi service, set cookies [10-backend.md]
- * Không có business logic ở đây
- */
 import { type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
 import { authService } from '../services/auth.service.js';
 import { env } from '../config/env.js';
 
-// ─── Zod schemas ───────────────────────────────────────────────────────────
 const loginSchema = z.object({
   email: z.string().email('Email không hợp lệ'),
   password: z.string().min(1, 'Mật khẩu không được để trống'),
@@ -30,7 +25,6 @@ const changePasswordSchema = z
     path: ['confirmPassword'],
   });
 
-// Cookie options — httpOnly, Secure (chỉ HTTPS) [20-frontend.md][A4]
 const cookieOptions = {
   httpOnly: true,
   secure: env.NODE_ENV === 'production',
@@ -45,17 +39,15 @@ function setAuthCookies(
   res: Response,
   tokens: { accessToken: string; refreshToken: string; expiresIn: string },
 ): void {
-  // Access token cookie — short-lived (15m)
   res.cookie(ACCESS_COOKIE_NAME, tokens.accessToken, {
     ...cookieOptions,
-    maxAge: 15 * 60 * 1000,  // 15 phút
+    maxAge: 15 * 60 * 1000,
   });
 
-  // Refresh token cookie — long-lived (7d)
   res.cookie(REFRESH_COOKIE_NAME, tokens.refreshToken, {
     ...cookieOptions,
-    maxAge: 7 * 24 * 60 * 60 * 1000,  // 7 ngày
-    path: '/api/auth',  // chỉ gửi khi gọi /api/auth routes
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: '/api/auth',
   });
 }
 
@@ -65,7 +57,6 @@ function clearAuthCookies(res: Response): void {
 }
 
 export const authController = {
-  /** POST /api/auth/login */
   async login(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const body = loginSchema.parse(req.body);
@@ -79,9 +70,6 @@ export const authController = {
 
       res.json({
         user,
-        // Cũng trả accessToken trong body để frontend có thể dùng nếu cookie không work
-        // (VD: mobile webview không support httpOnly cookie đúng cách)
-        // ADR: ưu tiên cookie, body accessToken chỉ là fallback [20-frontend.md]
         accessToken: tokens.accessToken,
         expiresIn: tokens.expiresIn,
       });
@@ -90,10 +78,8 @@ export const authController = {
     }
   },
 
-  /** POST /api/auth/refresh */
   async refresh(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // Ưu tiên cookie, fallback body
       const rawToken =
         (req.cookies[REFRESH_COOKIE_NAME] as string | undefined) ??
         (req.body as { refreshToken?: string }).refreshToken;
@@ -115,7 +101,6 @@ export const authController = {
     }
   },
 
-  /** POST /api/auth/logout */
   async logout(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const rawToken = req.cookies[REFRESH_COOKIE_NAME] as string | undefined;
@@ -129,11 +114,9 @@ export const authController = {
     }
   },
 
-  /** POST /api/auth/change-password */
   async changePassword(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const body = changePasswordSchema.parse(req.body);
-      // req.user được set bởi authenticate middleware
       const userId = req.user?.id;
       if (!userId) {
         res.status(401).json({ code: 'UNAUTHORIZED', message: 'Chưa đăng nhập' });
@@ -142,7 +125,6 @@ export const authController = {
 
       await authService.changePassword(userId, body.currentPassword, body.newPassword);
 
-      // Clear token sau đổi mật khẩu — buộc login lại
       clearAuthCookies(res);
       res.json({ message: 'Đổi mật khẩu thành công. Vui lòng đăng nhập lại.' });
     } catch (err) {
@@ -150,7 +132,6 @@ export const authController = {
     }
   },
 
-  /** GET /api/auth/me */
   async me(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       res.json({ user: req.user });

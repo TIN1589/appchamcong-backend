@@ -1,6 +1,3 @@
-/**
- * Users service — business logic cho quản lý nhân viên
- */
 import bcrypt from 'bcrypt';
 import { usersRepository } from '../repositories/users.repository.js';
 import { ConflictError, NotFoundError, AppError, ErrorCode } from '../lib/errors.js';
@@ -8,7 +5,6 @@ import type { SafeUser, UserRole, PaginatedResult, PaginationParams } from '../t
 
 const BCRYPT_ROUNDS = 12;
 
-// Validate password strength
 function validatePassword(password: string): void {
   if (password.length < 8) {
     throw new AppError(ErrorCode.VALIDATION_ERROR, 'Mật khẩu phải ít nhất 8 ký tự', 400);
@@ -23,7 +19,6 @@ function validatePassword(password: string): void {
 }
 
 export const usersService = {
-  /** List nhân viên (Admin only) */
   async list(
     storeId: number,
     pagination: PaginationParams,
@@ -32,7 +27,6 @@ export const usersService = {
     return usersRepository.findAll(storeId, pagination, filters);
   },
 
-  /** Lấy 1 nhân viên */
   async getById(userId: string, storeId: number): Promise<SafeUser> {
     const user = await usersRepository.findById(userId, storeId);
     if (!user) throw new NotFoundError('Nhân viên');
@@ -42,7 +36,6 @@ export const usersService = {
     return safe;
   },
 
-  /** Tạo nhân viên mới — Admin only, không self-register [10-backend.md] */
   async create(
     storeId: number,
     data: {
@@ -55,7 +48,6 @@ export const usersService = {
       leaveBalance?: number;
     },
   ): Promise<SafeUser> {
-    // Check email unique
     const exists = await usersRepository.emailExists(data.email, storeId);
     if (exists) {
       throw new ConflictError(ErrorCode.EMAIL_ALREADY_EXISTS, 'Email đã tồn tại trong hệ thống');
@@ -76,7 +68,6 @@ export const usersService = {
     });
   },
 
-  /** Cập nhật thông tin nhân viên */
   async update(
     userId: string,
     storeId: number,
@@ -93,13 +84,11 @@ export const usersService = {
     return updated;
   },
 
-  /** Enroll khuôn mặt — Admin hoặc chính user [A7] */
   async enrollFace(
     userId: string,
     storeId: number,
     descriptor: number[],
   ): Promise<void> {
-    // Validate descriptor shape
     if (!Array.isArray(descriptor) || descriptor.length !== 128) {
       throw new AppError(
         ErrorCode.VALIDATION_ERROR,
@@ -111,18 +100,12 @@ export const usersService = {
       throw new AppError(ErrorCode.VALIDATION_ERROR, 'Face descriptor chứa giá trị không hợp lệ', 400);
     }
 
-    // Verify user exists
     const user = await usersRepository.findById(userId, storeId);
     if (!user) throw new NotFoundError('Nhân viên');
 
     await usersRepository.saveFaceDescriptor(userId, storeId, descriptor);
   },
 
-  /**
-   * So khớp face descriptor — server là nguồn sự thật [A7]
-   * Không tin cờ "verified" từ client
-   * Trả true nếu Euclidean distance < threshold
-   */
   async verifyFace(
     userId: string,
     storeId: number,
@@ -141,7 +124,6 @@ export const usersService = {
       );
     }
 
-    // Euclidean distance [A7]
     let sum = 0;
     for (let i = 0; i < 128; i++) {
       const a = storedDescriptor[i] ?? 0;
@@ -150,7 +132,6 @@ export const usersService = {
     }
     const distance = Math.sqrt(sum);
 
-    // Threshold 0.6 theo face-api.js documentation
     const THRESHOLD = 0.6;
     return { match: distance < THRESHOLD, distance };
   },
