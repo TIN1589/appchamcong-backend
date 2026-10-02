@@ -35,10 +35,15 @@ describe('Validation chống trùng giờ ca làm việc (Rule A1 - A4)', () => 
     );
     for (const t of tplRes.rows) {
       const lower = t.name.toLowerCase();
-      if (lower.includes('sáng') || lower.includes('sang')) sangTemplateId = t.id;
-      if (lower.includes('chiều') || lower.includes('chieu')) chieuTemplateId = t.id;
-      if (lower.includes('tối') || lower.includes('toi')) toiTemplateId = t.id;
-      if (lower.includes('gãy') || lower.includes('gay')) gayTemplateId = t.id;
+      if (lower.includes('gãy') || lower.includes('gay')) {
+        gayTemplateId = t.id;
+      } else if (lower.includes('sáng') || lower.includes('sang')) {
+        sangTemplateId = t.id;
+      } else if (lower.includes('chiều') || lower.includes('chieu')) {
+        chieuTemplateId = t.id;
+      } else if (lower.includes('tối') || lower.includes('toi')) {
+        toiTemplateId = t.id;
+      }
     }
 
     // Dọn sạch dữ liệu ngày test trước khi chạy
@@ -173,5 +178,49 @@ describe('Validation chống trùng giờ ca làm việc (Rule A1 - A4)', () => 
         assignedTo: testUserId,
       }),
     ).rejects.toThrow(ConflictError);
+  });
+
+  it('A4.4: Chiều (12:00–17:00) + Gãy (10:00–14:00, 17:00–22:00) -> TRÙNG GIỜ (đoạn 12:00–14:00)', async () => {
+    // Xóa ca cũ
+    await query('DELETE FROM shifts WHERE work_date = $1', [TEST_DATE]);
+
+    // Tạo ca chiều cho nhân viên
+    await shiftsService.createFromTemplate(STORE_ID, adminId, {
+      templateId: chieuTemplateId,
+      workDate: TEST_DATE,
+      assignedTo: testUserId,
+    });
+
+    // Thử tạo ca gãy cùng ngày -> phải bị reject do chồng đoạn 12:00-14:00
+    await expect(
+      shiftsService.createFromTemplate(STORE_ID, adminId, {
+        templateId: gayTemplateId,
+        workDate: TEST_DATE,
+        assignedTo: testUserId,
+      }),
+    ).rejects.toThrow(ConflictError);
+  });
+
+  it('A4.5: Ca gãy ở hai ngày khác nhau -> CHO PHÉP (không bị trùng)', async () => {
+    const OTHER_DATE = '2028-05-11';
+    await query('DELETE FROM shifts WHERE work_date IN ($1, $2)', [TEST_DATE, OTHER_DATE]);
+
+    // Tạo ca gãy ngày 1
+    const shiftDay1 = await shiftsService.createFromTemplate(STORE_ID, adminId, {
+      templateId: gayTemplateId,
+      workDate: TEST_DATE,
+      assignedTo: testUserId,
+    });
+    expect(shiftDay1.id).toBeDefined();
+
+    // Tạo ca gãy ngày 2 cho cùng nhân viên -> thành công
+    const shiftDay2 = await shiftsService.createFromTemplate(STORE_ID, adminId, {
+      templateId: gayTemplateId,
+      workDate: OTHER_DATE,
+      assignedTo: testUserId,
+    });
+    expect(shiftDay2.id).toBeDefined();
+
+    await query('DELETE FROM shifts WHERE work_date = $1', [OTHER_DATE]);
   });
 });
