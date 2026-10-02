@@ -127,7 +127,7 @@ export async function seed(): Promise<void> {
       const dayOfWeek = nowVN.getUTCDay();
       const diffToMon = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
       const mondayMs = nowVN.getTime() - diffToMon * 86400000;
-      const fmt = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+      const fmt = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
       const tueDate = fmt(mondayMs + 86400000);
       const wedDate = fmt(mondayMs + 2 * 86400000);
 
