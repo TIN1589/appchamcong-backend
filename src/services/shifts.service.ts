@@ -83,13 +83,16 @@ export const shiftsService = {
     }));
 
     if (data.assignedTo) {
-      const isOverlap = await shiftsRepository.hasOverlap(
+      const overlap = await shiftsRepository.hasOverlap(
         data.assignedTo,
-        storeId,
+        data.workDate,
         segments.map((s) => ({ startsAt: s.startsAt, endsAt: s.endsAt })),
+        storeId,
       );
+      const isOverlap = typeof overlap === 'boolean' ? overlap : overlap?.hasOverlap;
       if (isOverlap) {
-        throw new ConflictError(ErrorCode.SHIFT_ALREADY_ASSIGNED, 'Nhân viên đã có ca trùng thời gian');
+        const msg = typeof overlap === 'object' && overlap?.message ? overlap.message : 'Nhân viên đã có ca trùng thời gian';
+        throw new ConflictError(ErrorCode.SHIFT_ALREADY_ASSIGNED, msg);
       }
     }
 
@@ -133,13 +136,16 @@ export const shiftsService = {
     }));
 
     if (data.assignedTo) {
-      const isOverlap = await shiftsRepository.hasOverlap(
+      const overlap = await shiftsRepository.hasOverlap(
         data.assignedTo,
-        storeId,
+        data.workDate,
         segments.map((s) => ({ startsAt: s.startsAt, endsAt: s.endsAt })),
+        storeId,
       );
+      const isOverlap = typeof overlap === 'boolean' ? overlap : overlap?.hasOverlap;
       if (isOverlap) {
-        throw new ConflictError(ErrorCode.SHIFT_ALREADY_ASSIGNED, 'Nhân viên đã có ca trùng thời gian');
+        const msg = typeof overlap === 'object' && overlap?.message ? overlap.message : 'Nhân viên đã có ca trùng thời gian';
+        throw new ConflictError(ErrorCode.SHIFT_ALREADY_ASSIGNED, msg);
       }
     }
 
@@ -178,14 +184,22 @@ export const shiftsService = {
     const existingShift = await shiftsRepository.findById(shiftId, storeId);
     if (!existingShift) throw new NotFoundError('Ca làm việc');
 
-    const isOverlap = await shiftsRepository.hasOverlap(
+    const dateStr =
+      typeof existingShift.work_date === 'string'
+        ? existingShift.work_date.substring(0, 10)
+        : existingShift.work_date.toISOString().substring(0, 10);
+
+    const overlap = await shiftsRepository.hasOverlap(
       userId,
+      dateStr,
+      shiftId,
       storeId,
-      existingShift.segments.map((s) => ({ startsAt: new Date(s.starts_at), endsAt: new Date(s.ends_at) })),
       shiftId,
     );
+    const isOverlap = typeof overlap === 'boolean' ? overlap : overlap?.hasOverlap;
     if (isOverlap) {
-      throw new ConflictError(ErrorCode.SHIFT_ALREADY_ASSIGNED, 'Nhân viên đã có ca trùng thời gian');
+      const msg = typeof overlap === 'object' && overlap?.message ? overlap.message : 'Nhân viên đã có ca trùng thời gian';
+      throw new ConflictError(ErrorCode.SHIFT_ALREADY_ASSIGNED, msg);
     }
 
     const shift = await shiftsRepository.assignToUser(shiftId, storeId, userId);

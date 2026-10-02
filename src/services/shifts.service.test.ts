@@ -61,8 +61,9 @@ describe('shiftsService - Business Logic & Overlap Guards', () => {
 
       expect(shiftsRepository.hasOverlap).toHaveBeenCalledWith(
         'user-uuid-1',
-        1,
+        '2026-10-06',
         expect.any(Array),
+        1,
       );
       expect(shiftsRepository.create).not.toHaveBeenCalled();
     });
@@ -129,8 +130,9 @@ describe('shiftsService - Business Logic & Overlap Guards', () => {
 
       expect(shiftsRepository.hasOverlap).toHaveBeenCalledWith(
         'user-uuid-1',
+        '2026-10-06',
+        'shift-target',
         1,
-        expect.any(Array),
         'shift-target',
       );
       expect(shiftsRepository.assignToUser).not.toHaveBeenCalled();

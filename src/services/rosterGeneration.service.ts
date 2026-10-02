@@ -1,6 +1,7 @@
 import { withTransaction, query } from '../db/client.js';
 import { getDaysOfWeek, getWeekRange, parseVNDate, addDaysVietnam } from '../lib/timezone.js';
 import { logger } from '../lib/logger.js';
+import { shiftsRepository } from '../repositories/shifts.repository.js';
 
 export interface GenerateWeekResult {
   storeId: number;
@@ -130,12 +131,60 @@ export const rosterGenerationService = {
       );
       const systemAdminId = adminRes.rows[0]?.id ?? '00000000-0000-0000-0000-000000000001';
 
+      // In-memory tracker để chặn trùng giữa các ca được sinh trong cùng một đợt
+      const inMemoryAssignedSegs = new Map<string, Array<{ startsAt: Date; endsAt: Date }>>();
+
       for (const d of defaults) {
         const workDate = days[d.weekday - 1]!;
         const isOnLeave = onLeave.has(`${d.user_id}:${workDate}`);
         const status = isOnLeave ? 'leave_approved' : 'scheduled';
         const meta = templateMeta.get(d.shift_template_id);
         const shiftType = meta?.shift_type ?? 'REGULAR';
+        const segs = meta?.segs ?? [];
+
+        const newSegs = segs.map((seg) => ({
+          startsAt: buildSegmentTime(workDate, seg.start_time),
+          endsAt: buildSegmentTime(workDate, seg.end_time),
+        }));
+
+        // 1. Kiểm tra overlap với in-memory ca vừa tạo trong đợt này
+        const userDateKey = `${d.user_id}:${workDate}`;
+        const previousSegsInBatch = inMemoryAssignedSegs.get(userDateKey) || [];
+        let hasBatchOverlap = false;
+        for (const prev of previousSegsInBatch) {
+          for (const cur of newSegs) {
+            if (prev.startsAt < cur.endsAt && cur.startsAt < prev.endsAt) {
+              hasBatchOverlap = true;
+              break;
+            }
+          }
+          if (hasBatchOverlap) break;
+        }
+
+        if (hasBatchOverlap) {
+          logger.warn(
+            { userId: d.user_id, workDate, templateId: d.shift_template_id },
+            '[generateWeek] Bỏ qua ca mặc định do trùng giờ với ca khác trong cùng đợt sinh lịch',
+          );
+          skippedCount++;
+          continue;
+        }
+
+        // 2. Kiểm tra overlap với các ca đã có trong DB
+        const overlap = await shiftsRepository.hasOverlap(
+          d.user_id,
+          workDate,
+          newSegs,
+          d.store_id,
+        );
+        if (overlap.hasOverlap) {
+          logger.warn(
+            { userId: d.user_id, workDate, templateId: d.shift_template_id, msg: overlap.message },
+            '[generateWeek] Bỏ qua ca mặc định do trùng giờ với ca đã có trong DB',
+          );
+          skippedCount++;
+          continue;
+        }
 
         // ON CONFLICT DO NOTHING đảm bảo idempotent không ghi đè manual/swap
         const insertShiftRes = await client.query<{ id: string }>(
@@ -153,7 +202,8 @@ export const rosterGenerationService = {
           createdCount++;
           if (isOnLeave) onLeaveCount++;
 
-          const segs = meta?.segs ?? [];
+          inMemoryAssignedSegs.set(userDateKey, [...previousSegsInBatch, ...newSegs]);
+
           for (let i = 0; i < segs.length; i++) {
             const seg = segs[i]!;
             const startsAt = buildSegmentTime(workDate, seg.start_time);

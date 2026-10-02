@@ -83,3 +83,12 @@ export function addDaysVietnam(startDate: string, daysToAdd: number): string {
   return dt.toISOString().slice(0, 10);
 }
 
+export function formatTimeVN(date: Date): string {
+  const vnMs = date.getTime() + VN_OFFSET_MS;
+  const vnDate = new Date(vnMs);
+  const h = vnDate.getUTCHours().toString().padStart(2, '0');
+  const m = vnDate.getUTCMinutes().toString().padStart(2, '0');
+  return `${h}:${m}`;
+}
+
+
