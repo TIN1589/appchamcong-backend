@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { attendanceService } from './attendance.service.js';
 import { attendanceRepository } from '../repositories/attendance.repository.js';
-import { AppError, ErrorCode } from '../lib/errors.js';
+import { ErrorCode } from '../lib/errors.js';
 
 vi.mock('../repositories/attendance.repository.js', () => ({
   attendanceRepository: {
