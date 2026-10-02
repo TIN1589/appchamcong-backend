@@ -105,6 +105,7 @@ describe('scheduleService', () => {
         assigned_to: 'user-1',
         status: 'assigned' as const,
         source: 'manual' as const,
+        type: 'SPLIT' as const,
         work_date: '2026-10-06',
         notes: 'Ca gãy trưa - tối',
         created_by: 'admin-1',

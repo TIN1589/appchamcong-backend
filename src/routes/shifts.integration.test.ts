@@ -64,6 +64,7 @@ const shiftStub: ShiftWithSegments = {
   work_date: new Date('2026-10-06'),
   status: 'open',
   source: 'manual',
+  shift_type: 'REGULAR',
   assigned_to: null,
   template_id: null,
   notes: null,

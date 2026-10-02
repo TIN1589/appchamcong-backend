@@ -30,6 +30,7 @@ describe('shiftsService - Business Logic & Overlap Guards', () => {
         assigned_to: null,
         status: 'open',
         source: 'manual',
+        shift_type: 'REGULAR',
         work_date: '2026-10-06',
         notes: null,
         created_by: 'admin-1',
@@ -49,7 +50,10 @@ describe('shiftsService - Business Logic & Overlap Guards', () => {
     });
 
     it('ném lỗi SHIFT_ALREADY_ASSIGNED nếu tạo ca có gán người mà bị trùng giờ', async () => {
-      vi.mocked(shiftsRepository.hasOverlap).mockResolvedValueOnce(true);
+      vi.mocked(shiftsRepository.hasOverlap).mockResolvedValueOnce({
+        hasOverlap: true,
+        message: 'Nhân viên đã có ca trùng thời gian',
+      });
 
       await expect(
         shiftsService.create(1, 'admin-1', {
@@ -69,7 +73,7 @@ describe('shiftsService - Business Logic & Overlap Guards', () => {
     });
 
     it('tạo ca thành công nếu có gán người và không bị trùng giờ', async () => {
-      vi.mocked(shiftsRepository.hasOverlap).mockResolvedValueOnce(false);
+      vi.mocked(shiftsRepository.hasOverlap).mockResolvedValueOnce({ hasOverlap: false });
       vi.mocked(shiftsRepository.create).mockResolvedValueOnce({
         id: 'shift-1',
         store_id: 1,
@@ -77,6 +81,7 @@ describe('shiftsService - Business Logic & Overlap Guards', () => {
         assigned_to: 'user-uuid-1',
         status: 'assigned',
         source: 'manual',
+        shift_type: 'REGULAR',
         work_date: '2026-10-06',
         notes: null,
         created_by: 'admin-1',
@@ -106,6 +111,7 @@ describe('shiftsService - Business Logic & Overlap Guards', () => {
         assigned_to: null,
         status: 'open',
         source: 'manual',
+        shift_type: 'REGULAR',
         work_date: '2026-10-06',
         notes: null,
         created_by: 'admin-1',
@@ -122,7 +128,10 @@ describe('shiftsService - Business Logic & Overlap Guards', () => {
         ],
       });
 
-      vi.mocked(shiftsRepository.hasOverlap).mockResolvedValueOnce(true);
+      vi.mocked(shiftsRepository.hasOverlap).mockResolvedValueOnce({
+        hasOverlap: true,
+        message: 'Nhân viên đã có ca trùng thời gian',
+      });
 
       await expect(
         shiftsService.assign('shift-target', 1, 'user-uuid-1'),
@@ -146,6 +155,7 @@ describe('shiftsService - Business Logic & Overlap Guards', () => {
         assigned_to: null,
         status: 'open' as const,
         source: 'manual' as const,
+        shift_type: 'REGULAR' as const,
         work_date: '2026-10-06',
         notes: null,
         created_by: 'admin-1',
@@ -166,7 +176,7 @@ describe('shiftsService - Business Logic & Overlap Guards', () => {
         .mockResolvedValueOnce(mockShift)
         .mockResolvedValueOnce({ ...mockShift, assigned_to: 'user-uuid-1', status: 'assigned' });
 
-      vi.mocked(shiftsRepository.hasOverlap).mockResolvedValueOnce(false);
+      vi.mocked(shiftsRepository.hasOverlap).mockResolvedValueOnce({ hasOverlap: false });
       vi.mocked(shiftsRepository.assignToUser).mockResolvedValueOnce({
         ...mockShift,
         assigned_to: 'user-uuid-1',

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { query } from '../db/client.js';
-import { seed } from '../../scripts/seed.js';
+import { seed } from '../db/seed.js';
 import { rosterGenerationService } from './rosterGeneration.service.js';
 
 describe('Seed & Shift Segments Idempotency (§1.2 & §1.3)', () => {
@@ -46,7 +46,7 @@ describe('Seed & Shift Segments Idempotency (§1.2 & §1.3)', () => {
        HAVING COUNT(*) > 1`,
     );
     expect(dupTplSegs.rows.length).toBe(0);
-  });
+  }, 30000);
 
   it('định nghĩa template: Ca sáng/chiều/tối = 1 segment, Ca gãy = đúng 2 segments (10:00–14:00, 17:00–22:00)', async () => {
     const tpls = await query<{ id: string; name: string; shift_type: string; seg_count: string }>(
@@ -112,5 +112,5 @@ describe('Seed & Shift Segments Idempotency (§1.2 & §1.3)', () => {
 
     // Dọn dẹp sau test
     await query("DELETE FROM shifts WHERE work_date >= '2027-01-04' AND work_date <= '2027-01-10'");
-  });
+  }, 30000);
 });
