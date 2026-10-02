@@ -15,6 +15,8 @@ import { authRouter } from './routes/auth.js';
 import { usersRouter } from './routes/users.js';
 import { shiftsRouter } from './routes/shifts.js';
 import { scheduleRouter } from './routes/schedule.js';
+import { attendanceRouter } from './routes/attendance.js';
+import { faceRouter } from './routes/face.js';
 import { wifiRestrictionMiddleware } from './middleware/wifiRestriction.js';
 
 export function createApp(): express.Application {
@@ -105,6 +107,9 @@ export function createApp(): express.Application {
   app.use('/schedule', scheduleRouter);
   app.use('/api/schedules', scheduleRouter);
   app.use('/schedules', scheduleRouter);
+  app.use('/api/attendances', attendanceRouter);
+  app.use('/attendances', attendanceRouter);
+  app.use('/api/face', faceRouter);
 
   app.use(notFoundHandler);
 
