@@ -17,13 +17,28 @@ jobs:
   ci:
     name: Lint, Typecheck, Test & Build
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: chamcong
+          POSTGRES_USER: chamcong_user
+          POSTGRES_PASSWORD: changeme_strong_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     env:
       NODE_ENV: test
       PORT: 3000
       TZ: UTC
       POSTGRES_HOST: localhost
       POSTGRES_PORT: 5432
-      POSTGRES_DB: chamcong_test
+      POSTGRES_DB: chamcong
       POSTGRES_USER: chamcong_user
       POSTGRES_PASSWORD: changeme_strong_password
       REDIS_URL: redis://localhost:6379
@@ -56,6 +71,12 @@ jobs:
 
       - name: Run typecheck
         run: npm run typecheck
+
+      - name: Run database migrations
+        run: npm run migrate
+
+      - name: Run database seed
+        run: npm run seed
 
       - name: Run unit & integration tests (vitest)
         run: npm run test

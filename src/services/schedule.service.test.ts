@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { scheduleService } from './schedule.service.js';
 import { scheduleRepository } from '../repositories/schedule.repository.js';
+import { shiftsRepository } from '../repositories/shifts.repository.js';
 
 vi.mock('../repositories/schedule.repository.js', () => ({
   scheduleRepository: {
@@ -8,9 +9,16 @@ vi.mock('../repositories/schedule.repository.js', () => ({
   },
 }));
 
+vi.mock('../repositories/shifts.repository.js', () => ({
+  shiftsRepository: {
+    listTemplates: vi.fn().mockResolvedValue([]),
+  },
+}));
+
 describe('scheduleService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(shiftsRepository.listTemplates).mockResolvedValue([]);
   });
 
   describe('Biên tuần (Week boundary)', () => {
