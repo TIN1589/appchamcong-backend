@@ -5,6 +5,7 @@ import type {
   ShiftTemplate,
   ShiftTemplateSegment,
   ShiftStatus,
+  ShiftType,
   PaginatedResult,
   PaginationParams,
 } from '../types/db.js';
@@ -14,6 +15,7 @@ export interface ShiftWithSegments extends Shift {
 }
 
 export interface TemplateWithSegments extends ShiftTemplate {
+  type?: ShiftType;
   segments: ShiftTemplateSegment[];
 }
 
@@ -43,6 +45,7 @@ export const shiftsRepository = {
 
     return templates.map((t) => ({
       ...t,
+      type: t.shift_type,
       segments: segsByTemplate.get(t.id) ?? [],
     }));
   },
@@ -53,14 +56,16 @@ export const shiftsRepository = {
     data: {
       name: string;
       color: string;
+      shiftType?: ShiftType;
       segments: Array<{ startTime: string; endTime: string; sortOrder?: number }>;
     },
   ): Promise<TemplateWithSegments> {
+    const shiftType = data.shiftType ?? (data.name.toLowerCase().includes('gãy') || data.name.toLowerCase().includes('gay') ? 'SPLIT' : 'REGULAR');
     return withTransaction(async (client) => {
       const tResult = await client.query<ShiftTemplate>(
-        `INSERT INTO shift_templates (store_id, name, color, created_by)
-         VALUES ($1, $2, $3, $4) RETURNING *`,
-        [storeId, data.name, data.color, createdBy],
+        `INSERT INTO shift_templates (store_id, name, color, shift_type, created_by)
+         VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+        [storeId, data.name, data.color, shiftType, createdBy],
       );
       const template = tResult.rows[0];
       if (!template) throw new Error('Insert template failed');
@@ -71,14 +76,16 @@ export const shiftsRepository = {
         if (!seg) continue;
         const sResult = await client.query<ShiftTemplateSegment>(
           `INSERT INTO shift_template_segments (template_id, start_time, end_time, sort_order)
-           VALUES ($1, $2, $3, $4) RETURNING *`,
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (template_id, start_time, end_time) DO NOTHING
+           RETURNING *`,
           [template.id, seg.startTime, seg.endTime, seg.sortOrder ?? i],
         );
         const inserted = sResult.rows[0];
         if (inserted) segments.push(inserted);
       }
 
-      return { ...template, segments };
+      return { ...template, type: template.shift_type, segments };
     });
   },
 
@@ -184,6 +191,7 @@ export const shiftsRepository = {
       notes?: string;
       source?: 'default' | 'manual' | 'swap';
       status?: ShiftStatus;
+      shiftType?: ShiftType;
       segments: Array<{
         startsAt: Date;
         endsAt: Date;
@@ -192,9 +200,19 @@ export const shiftsRepository = {
     },
   ): Promise<ShiftWithSegments> {
     return withTransaction(async (client) => {
+      let shiftType = data.shiftType;
+      if (!shiftType && data.templateId) {
+        const tplRes = await client.query<{ shift_type: ShiftType }>(
+          'SELECT shift_type FROM shift_templates WHERE id = $1',
+          [data.templateId],
+        );
+        shiftType = tplRes.rows[0]?.shift_type ?? 'REGULAR';
+      }
+      shiftType = shiftType ?? 'REGULAR';
+
       const shiftResult = await client.query<Shift>(
-        `INSERT INTO shifts (store_id, template_id, assigned_to, status, work_date, notes, source, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+        `INSERT INTO shifts (store_id, template_id, assigned_to, status, work_date, notes, source, shift_type, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
         [
           storeId,
           data.templateId ?? null,
@@ -203,6 +221,7 @@ export const shiftsRepository = {
           data.workDate,
           data.notes ?? null,
           data.source ?? 'manual',
+          shiftType,
           createdBy,
         ],
       );
@@ -215,7 +234,9 @@ export const shiftsRepository = {
         if (!seg) continue;
         const sResult = await client.query<ShiftSegment>(
           `INSERT INTO shift_segments (shift_id, starts_at, ends_at, sort_order)
-           VALUES ($1, $2, $3, $4) RETURNING *`,
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (shift_id, starts_at, ends_at) DO NOTHING
+           RETURNING *`,
           [shift.id, seg.startsAt.toISOString(), seg.endsAt.toISOString(), seg.sortOrder ?? i],
         );
         const inserted = sResult.rows[0];

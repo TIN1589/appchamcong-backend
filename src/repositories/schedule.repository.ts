@@ -1,5 +1,5 @@
 import { query } from '../db/client.js';
-import type { ShiftStatus } from '../types/db.js';
+import type { ShiftStatus, ShiftType } from '../types/db.js';
 
 export interface ScheduleShiftSegmentRow {
   id: string;
@@ -18,6 +18,7 @@ export interface ScheduleShiftRow {
   work_date: string;
   notes: string | null;
   source: 'default' | 'manual' | 'swap';
+  shift_type: ShiftType;
   created_by: string;
   created_at: Date;
   updated_at: Date;
@@ -27,6 +28,7 @@ export interface ScheduleShiftRow {
   assigned_user_role: string | null;
   template_name: string | null;
   template_color: string | null;
+  template_shift_type: ShiftType | null;
   segments?: ScheduleShiftSegmentRow[];
 }
 
@@ -39,6 +41,7 @@ export interface ScheduleShiftDTO {
   work_date: string;
   notes: string | null;
   source: 'default' | 'manual' | 'swap';
+  type: ShiftType;
   created_by: string;
   created_at: Date;
   updated_at: Date;
@@ -52,6 +55,7 @@ export interface ScheduleShiftDTO {
     id: string;
     name: string;
     color: string;
+    type?: ShiftType;
   } | null;
   segments: ScheduleShiftSegmentRow[];
 }
@@ -87,6 +91,7 @@ export const scheduleRepository = {
         to_char(s.work_date, 'YYYY-MM-DD') AS work_date,
         s.notes,
         s.source,
+        COALESCE(s.shift_type, t.shift_type, 'REGULAR') AS shift_type,
         s.created_by,
         s.created_at,
         s.updated_at,
@@ -95,7 +100,8 @@ export const scheduleRepository = {
         u.email AS assigned_user_email,
         u.role AS assigned_user_role,
         t.name AS template_name,
-        t.color AS template_color
+        t.color AS template_color,
+        COALESCE(t.shift_type, 'REGULAR') AS template_shift_type
       FROM shifts s
       LEFT JOIN users u ON s.assigned_to = u.id
       LEFT JOIN shift_templates t ON s.template_id = t.id
@@ -143,6 +149,7 @@ export const scheduleRepository = {
       work_date: s.work_date,
       notes: s.notes,
       source: s.source ?? 'manual',
+      type: s.shift_type ?? s.template_shift_type ?? 'REGULAR',
       created_by: s.created_by,
       created_at: s.created_at,
       updated_at: s.updated_at,
@@ -159,6 +166,7 @@ export const scheduleRepository = {
             id: s.template_id,
             name: s.template_name,
             color: s.template_color ?? '#6C4CF1',
+            type: s.template_shift_type ?? 'REGULAR',
           }
         : null,
       segments: segsByShift.get(s.id) ?? [],

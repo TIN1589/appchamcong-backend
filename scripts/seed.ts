@@ -80,25 +80,25 @@ async function seed(): Promise<void> {
       }
 
       const templates = [
-        { id: 'aaaaaaaa-0000-0000-0000-000000000001', name: 'Ca sáng', color: '#6C4CF1', segs: [{ s: '07:00', e: '12:00' }] },
-        { id: 'aaaaaaaa-0000-0000-0000-000000000002', name: 'Ca chiều', color: '#4F6BFF', segs: [{ s: '12:00', e: '17:00' }] },
-        { id: 'aaaaaaaa-0000-0000-0000-000000000003', name: 'Ca tối', color: '#2CA7FF', segs: [{ s: '17:00', e: '22:00' }] },
-        { id: 'aaaaaaaa-0000-0000-0000-000000000004', name: 'Ca gãy (trưa-tối)', color: '#FF6FA8', segs: [{ s: '10:00', e: '14:00' }, { s: '17:00', e: '22:00' }] },
+        { id: 'aaaaaaaa-0000-0000-0000-000000000001', name: 'Ca sáng', color: '#6C4CF1', type: 'REGULAR', segs: [{ s: '07:00', e: '12:00' }] },
+        { id: 'aaaaaaaa-0000-0000-0000-000000000002', name: 'Ca chiều', color: '#4F6BFF', type: 'REGULAR', segs: [{ s: '12:00', e: '17:00' }] },
+        { id: 'aaaaaaaa-0000-0000-0000-000000000003', name: 'Ca tối', color: '#2CA7FF', type: 'REGULAR', segs: [{ s: '17:00', e: '22:00' }] },
+        { id: 'aaaaaaaa-0000-0000-0000-000000000004', name: 'Ca gãy (trưa-tối)', color: '#FF6FA8', type: 'SPLIT', segs: [{ s: '10:00', e: '14:00' }, { s: '17:00', e: '22:00' }] },
       ];
 
       for (const tpl of templates) {
         await client.query(`
-          INSERT INTO shift_templates (id, store_id, name, color, created_by)
-          VALUES ($1, 1, $2, $3, '00000000-0000-0000-0000-000000000001')
-          ON CONFLICT (store_id, name) DO NOTHING
-        `, [tpl.id, tpl.name, tpl.color]);
+          INSERT INTO shift_templates (id, store_id, name, color, shift_type, created_by)
+          VALUES ($1, 1, $2, $3, $4, '00000000-0000-0000-0000-000000000001')
+          ON CONFLICT (store_id, name) DO UPDATE SET shift_type = EXCLUDED.shift_type, color = EXCLUDED.color
+        `, [tpl.id, tpl.name, tpl.color, tpl.type]);
 
         for (let i = 0; i < tpl.segs.length; i++) {
           const seg = tpl.segs[i]!;
           await client.query(`
             INSERT INTO shift_template_segments (template_id, start_time, end_time, sort_order)
             VALUES ($1, $2, $3, $4)
-            ON CONFLICT DO NOTHING
+            ON CONFLICT (template_id, start_time, end_time) DO NOTHING
           `, [tpl.id, seg.s, seg.e, i]);
         }
       }
@@ -151,46 +151,42 @@ async function seed(): Promise<void> {
       `, [tueDate]);
 
       // Ca có trạng thái leave_approved của Cường
-      const leaveShiftRes = await client.query(`
-        INSERT INTO shifts (id, store_id, template_id, assigned_to, status, source, work_date, created_by)
+      await client.query(`
+        INSERT INTO shifts (id, store_id, template_id, assigned_to, status, source, shift_type, work_date, created_by)
         VALUES (
           'dddddddd-0000-0000-0000-000000000001', 1,
           'aaaaaaaa-0000-0000-0000-000000000003',
           '00000000-0000-0000-0000-000000000004',
-          'leave_approved', 'default', $1,
+          'leave_approved', 'default', 'REGULAR', $1,
           '00000000-0000-0000-0000-000000000001'
-        ) ON CONFLICT DO NOTHING
-        RETURNING id
+        ) ON CONFLICT (assigned_to, work_date, template_id) WHERE assigned_to IS NOT NULL AND template_id IS NOT NULL
+        DO NOTHING
       `, [tueDate]);
 
-      if (leaveShiftRes.rows[0]) {
-        await client.query(`
-          INSERT INTO shift_segments (shift_id, starts_at, ends_at, sort_order)
-          VALUES ('dddddddd-0000-0000-0000-000000000001', $1, $2, 0)
-          ON CONFLICT DO NOTHING
-        `, [`${tueDate}T10:00:00Z`, `${tueDate}T15:00:00Z`]);
-      }
+      await client.query(`
+        INSERT INTO shift_segments (shift_id, starts_at, ends_at, sort_order)
+        VALUES ('dddddddd-0000-0000-0000-000000000001', $1, $2, 0)
+        ON CONFLICT (shift_id, starts_at, ends_at) DO NOTHING
+      `, [`${tueDate}T10:00:00Z`, `${tueDate}T15:00:00Z`]);
 
       // Ca có trạng thái swapped_out của Bình vào Thứ Tư
-      const swapShiftRes = await client.query(`
-        INSERT INTO shifts (id, store_id, template_id, assigned_to, status, source, work_date, created_by)
+      await client.query(`
+        INSERT INTO shifts (id, store_id, template_id, assigned_to, status, source, shift_type, work_date, created_by)
         VALUES (
           'dddddddd-0000-0000-0000-000000000002', 1,
           'aaaaaaaa-0000-0000-0000-000000000002',
           '00000000-0000-0000-0000-000000000003',
-          'swapped_out', 'manual', $1,
+          'swapped_out', 'manual', 'REGULAR', $1,
           '00000000-0000-0000-0000-000000000001'
-        ) ON CONFLICT DO NOTHING
-        RETURNING id
+        ) ON CONFLICT (assigned_to, work_date, template_id) WHERE assigned_to IS NOT NULL AND template_id IS NOT NULL
+        DO NOTHING
       `, [wedDate]);
 
-      if (swapShiftRes.rows[0]) {
-        await client.query(`
-          INSERT INTO shift_segments (shift_id, starts_at, ends_at, sort_order)
-          VALUES ('dddddddd-0000-0000-0000-000000000002', $1, $2, 0)
-          ON CONFLICT DO NOTHING
-        `, [`${wedDate}T05:00:00Z`, `${wedDate}T10:00:00Z`]);
-      }
+      await client.query(`
+        INSERT INTO shift_segments (shift_id, starts_at, ends_at, sort_order)
+        VALUES ('dddddddd-0000-0000-0000-000000000002', $1, $2, 0)
+        ON CONFLICT (shift_id, starts_at, ends_at) DO NOTHING
+      `, [`${wedDate}T05:00:00Z`, `${wedDate}T10:00:00Z`]);
 
       await client.query('COMMIT');
       process.stdout.write('✅ Seed completed!\n\n');
@@ -209,7 +205,11 @@ async function seed(): Promise<void> {
   }
 }
 
-void seed().catch((err) => {
-  process.stderr.write(`Seed failed: ${String(err)}\n`);
-  process.exit(1);
-});
+export { seed };
+
+if (process.argv[1]?.endsWith('seed.ts') || process.argv[1]?.endsWith('seed.js')) {
+  void seed().catch((err) => {
+    process.stderr.write(`Seed failed: ${String(err)}\n`);
+    process.exit(1);
+  });
+}

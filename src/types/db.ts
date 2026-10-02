@@ -61,11 +61,14 @@ export interface RefreshToken {
   created_at: Date;
 }
 
+export type ShiftType = 'REGULAR' | 'SPLIT' | 'FLEXIBLE';
+
 export interface ShiftTemplate {
   id: string;
   store_id: number;
   name: string;
   color: string;
+  shift_type: ShiftType;
   created_by: string;
   created_at: Date;
   updated_at: Date;
@@ -88,6 +91,7 @@ export interface Shift {
   work_date: string | Date;
   notes: string | null;
   source: ShiftSource;
+  shift_type: ShiftType;
   created_by: string;
   created_at: Date;
   updated_at: Date;

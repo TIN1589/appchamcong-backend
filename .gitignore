@@ -20,6 +20,9 @@ pino-*.log
 coverage/
 .vitest/
 
+# Database backups
+backups/
+
 # OS & Editor files
 .DS_Store
 Thumbs.db

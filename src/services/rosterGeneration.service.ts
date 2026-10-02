@@ -80,10 +80,26 @@ export const rosterGenerationService = {
         }
       }
 
-      // 3. Cache các segments của templates
+      // 3. Cache các segments và loại ca của templates
       const templateIds = [...new Set(defaults.map((d) => d.shift_template_id))];
-      const templateSegs = new Map<string, Array<{ start_time: string; end_time: string; sort_order: number }>>();
+      const templateMeta = new Map<
+        string,
+        {
+          shift_type: 'REGULAR' | 'SPLIT' | 'FLEXIBLE';
+          segs: Array<{ start_time: string; end_time: string; sort_order: number }>;
+        }
+      >();
       if (templateIds.length > 0) {
+        const tplRes = await client.query<{ id: string; shift_type: 'REGULAR' | 'SPLIT' | 'FLEXIBLE' }>(
+          `SELECT id, COALESCE(shift_type, 'REGULAR') AS shift_type
+           FROM shift_templates
+           WHERE id = ANY($1::uuid[])`,
+          [templateIds],
+        );
+        for (const t of tplRes.rows) {
+          templateMeta.set(t.id, { shift_type: t.shift_type, segs: [] });
+        }
+
         const segsRes = await client.query<{
           template_id: string;
           start_time: string;
@@ -97,9 +113,10 @@ export const rosterGenerationService = {
           [templateIds],
         );
         for (const s of segsRes.rows) {
-          const arr = templateSegs.get(s.template_id) ?? [];
-          arr.push({ start_time: s.start_time, end_time: s.end_time, sort_order: s.sort_order });
-          templateSegs.set(s.template_id, arr);
+          const meta = templateMeta.get(s.template_id);
+          if (meta) {
+            meta.segs.push({ start_time: s.start_time, end_time: s.end_time, sort_order: s.sort_order });
+          }
         }
       }
 
@@ -117,16 +134,18 @@ export const rosterGenerationService = {
         const workDate = days[d.weekday - 1]!;
         const isOnLeave = onLeave.has(`${d.user_id}:${workDate}`);
         const status = isOnLeave ? 'leave_approved' : 'scheduled';
+        const meta = templateMeta.get(d.shift_template_id);
+        const shiftType = meta?.shift_type ?? 'REGULAR';
 
         // ON CONFLICT DO NOTHING đảm bảo idempotent không ghi đè manual/swap
         const insertShiftRes = await client.query<{ id: string }>(
           `INSERT INTO shifts
-             (store_id, template_id, assigned_to, work_date, source, status, created_by)
-           VALUES ($1, $2, $3, $4, 'default', $5, $6)
+             (store_id, template_id, assigned_to, work_date, source, status, shift_type, created_by)
+           VALUES ($1, $2, $3, $4, 'default', $5, $6, $7)
            ON CONFLICT (assigned_to, work_date, template_id) WHERE assigned_to IS NOT NULL AND template_id IS NOT NULL
            DO NOTHING
            RETURNING id`,
-          [d.store_id, d.shift_template_id, d.user_id, workDate, status, systemAdminId],
+          [d.store_id, d.shift_template_id, d.user_id, workDate, status, shiftType, systemAdminId],
         );
 
         const insertedShift = insertShiftRes.rows[0];
@@ -134,7 +153,7 @@ export const rosterGenerationService = {
           createdCount++;
           if (isOnLeave) onLeaveCount++;
 
-          const segs = templateSegs.get(d.shift_template_id) ?? [];
+          const segs = meta?.segs ?? [];
           for (let i = 0; i < segs.length; i++) {
             const seg = segs[i]!;
             const startsAt = buildSegmentTime(workDate, seg.start_time);
@@ -142,7 +161,8 @@ export const rosterGenerationService = {
 
             await client.query(
               `INSERT INTO shift_segments (shift_id, starts_at, ends_at, sort_order)
-               VALUES ($1, $2, $3, $4)`,
+               VALUES ($1, $2, $3, $4)
+               ON CONFLICT (shift_id, starts_at, ends_at) DO NOTHING`,
               [insertedShift.id, startsAt.toISOString(), endsAt.toISOString(), seg.sort_order ?? i],
             );
           }
