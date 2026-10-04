@@ -6,7 +6,7 @@ const GRACE_PERIOD_MS = 15_000; // 15 giây theo SRS v1.1
 // Memory state: userId -> Set<socketId>
 const userSockets = new Map<string, Set<string>>();
 // Memory state: userId -> timeoutId
-const disconnectTimeouts = new Map<string, NodeJS.Timeout>();
+const disconnectTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
 
 export const presenceManager = {
   /**

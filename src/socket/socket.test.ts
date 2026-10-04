@@ -35,7 +35,9 @@ describe('Socket.io Server Handshake & Rooms (§3.3 SRS v1.1)', () => {
 
   afterAll(async () => {
     await new Promise<void>((resolve) => {
-      server.close(() => resolve());
+      server.close(() => {
+        resolve();
+      });
     });
   });
 

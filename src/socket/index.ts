@@ -14,10 +14,8 @@ export interface SocketUser {
 }
 
 declare module 'socket.io' {
-  interface Socket {
-    data: {
-      user: SocketUser;
-    };
+  interface SocketData {
+    user: SocketUser;
   }
 }
 
@@ -48,12 +46,14 @@ export function initSocketServer(httpServer: HttpServer): Server {
   io.use((socket: Socket, next) => {
     try {
       const authHeader = socket.handshake.headers.authorization;
+      const rawAuth = socket.handshake.auth as Record<string, unknown> | undefined;
       const token =
-        socket.handshake.auth?.token ??
+        (typeof rawAuth?.['token'] === 'string' ? rawAuth['token'] : null) ??
         (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null);
 
       if (!token) {
-        return next(new Error('UNAUTHORIZED'));
+        next(new Error('UNAUTHORIZED'));
+        return;
       }
 
       const decoded = jwt.verify(token, env.JWT_ACCESS_SECRET) as {
@@ -65,7 +65,8 @@ export function initSocketServer(httpServer: HttpServer): Server {
       };
 
       if (decoded.type && decoded.type !== 'access') {
-        return next(new Error('INVALID_TOKEN_TYPE'));
+        next(new Error('INVALID_TOKEN_TYPE'));
+        return;
       }
 
       socket.data.user = {
@@ -83,7 +84,11 @@ export function initSocketServer(httpServer: HttpServer): Server {
   });
 
   io.on('connection', (socket: Socket) => {
-    const { userId, storeId } = socket.data.user;
+    const socketData = socket.data as { user?: SocketUser };
+    const user = socketData.user;
+    if (!user) return;
+    const userId: string = user.userId;
+    const storeId: number = user.storeId;
 
     // 1. Tự động tham gia 2 room chính: toàn cửa hàng và cá nhân
     void socket.join(`store:${storeId}`);
@@ -134,9 +139,9 @@ export function initSocketServer(httpServer: HttpServer): Server {
         });
 
         if (typeof callback === 'function') callback({ ok: true, data: msg });
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (typeof callback === 'function') {
-          callback({ ok: false, error: err?.message ?? 'SEND_FAILED' });
+          callback({ ok: false, error: err instanceof Error ? err.message : 'SEND_FAILED' });
         }
       }
     });

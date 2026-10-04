@@ -20,6 +20,7 @@ import { faceRouter } from './routes/face.js';
 import { adjustmentRouter } from './routes/adjustment.js';
 import { swapRouter, shiftPoolRouter } from './routes/swap.js';
 import { chatRouter } from './routes/chat.js';
+import { telegramRouter } from './routes/telegram.js';
 import { wifiRestrictionMiddleware } from './middleware/wifiRestriction.js';
 
 export function createApp(): express.Application {
@@ -121,6 +122,8 @@ export function createApp(): express.Application {
   app.use('/shift-pool', shiftPoolRouter);
   app.use('/api/chat', chatRouter);
   app.use('/chat', chatRouter);
+  app.use('/api/telegram', telegramRouter);
+  app.use('/telegram', telegramRouter);
 
   app.use(notFoundHandler);
 

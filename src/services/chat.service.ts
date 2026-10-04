@@ -1,5 +1,5 @@
 import { chatRepository, type ConversationWithDetails, type MessageRecord } from '../repositories/chat.repository.js';
-import { BadRequestError, ForbiddenError, NotFoundError } from '../lib/errors.js';
+import { BadRequestError, ForbiddenError, ErrorCode } from '../lib/errors.js';
 
 export const chatService = {
   async getOrCreateStoreGroup(storeId: number) {
@@ -8,7 +8,7 @@ export const chatService = {
 
   async getOrCreateDirect(storeId: number, currentUserId: string, targetUserId: string) {
     if (currentUserId === targetUserId) {
-      throw new BadRequestError('INVALID_RECIPIENT' as any, 'Không thể tạo cuộc trò chuyện với chính mình');
+      throw new BadRequestError(ErrorCode.VALIDATION_ERROR, 'Không thể tạo cuộc trò chuyện với chính mình');
     }
     return chatRepository.getOrCreateDirectConversation(storeId, currentUserId, targetUserId);
   },
@@ -30,10 +30,10 @@ export const chatService = {
   async sendMessage(conversationId: string, senderId: string, content: string): Promise<MessageRecord> {
     const trimmed = content.trim();
     if (!trimmed) {
-      throw new BadRequestError('VALIDATION_ERROR' as any, 'Nội dung tin nhắn không được để trống');
+      throw new BadRequestError(ErrorCode.VALIDATION_ERROR, 'Nội dung tin nhắn không được để trống');
     }
     if (trimmed.length > 2000) {
-      throw new BadRequestError('VALIDATION_ERROR' as any, 'Tin nhắn tối đa 2000 ký tự');
+      throw new BadRequestError(ErrorCode.VALIDATION_ERROR, 'Tin nhắn tối đa 2000 ký tự');
     }
 
     const isMember = await chatRepository.isMember(conversationId, senderId);

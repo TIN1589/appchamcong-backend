@@ -1,6 +1,8 @@
 import { swapRepository, type SwapDetails, type SwapRequestRecord } from '../repositories/swap.repository.js';
 import { shiftsRepository } from '../repositories/shifts.repository.js';
+import { usersRepository } from '../repositories/users.repository.js';
 import { auditRepository } from '../repositories/audit.repository.js';
+import { telegramService } from './telegram.service.js';
 import {
   BadRequestError,
   ConflictError,
@@ -8,7 +10,7 @@ import {
   NotFoundError,
   ErrorCode,
 } from '../lib/errors.js';
-import { diffHours, getWeekRange } from '../lib/timezone.js';
+import { diffHours, getWeekRange, formatTimeVN } from '../lib/timezone.js';
 import { type Clock, systemClock } from '../lib/clock.js';
 import { query } from '../db/client.js';
 
@@ -18,23 +20,23 @@ export interface CreateSwapRequestInput {
   requesterShiftId: string;
   receiverId: string;
   receiverShiftId: string;
-  reason?: string;
-  clock?: Clock;
+  reason?: string | undefined;
+  clock?: Clock | undefined;
 }
 
 export interface PublishPoolShiftInput {
   storeId: number;
   requesterId: string;
   shiftId: string;
-  reason?: string;
-  clock?: Clock;
+  reason?: string | undefined;
+  clock?: Clock | undefined;
 }
 
 export interface ClaimPoolShiftInput {
   storeId: number;
   claimerId: string;
   swapRequestId: string;
-  clock?: Clock;
+  clock?: Clock | undefined;
 }
 
 export interface ReviewSwapInput {
@@ -42,8 +44,8 @@ export interface ReviewSwapInput {
   adminId: string;
   swapRequestId: string;
   action: 'approve' | 'reject';
-  adminNote?: string;
-  clock?: Clock;
+  adminNote?: string | undefined;
+  clock?: Clock | undefined;
 }
 
 async function getShiftStartsAt(shiftId: string): Promise<{ startsAt: Date; workDate: string } | null> {
@@ -171,6 +173,23 @@ export const swapService = {
       detail: { requestId: record.id, requesterShiftId: input.requesterShiftId, receiverShiftId: input.receiverShiftId },
     });
 
+    // Thông báo Telegram non-blocking
+    void Promise.all([
+      usersRepository.findById(input.requesterId, input.storeId),
+      usersRepository.findById(input.receiverId, input.storeId),
+    ]).then(([reqUser, recUser]) => {
+      if (reqUser && recUser) {
+        void telegramService.notifySwapRequested({
+          receiverChatId: recUser.telegram_chat_id,
+          requesterName: reqUser.full_name,
+          receiverName: recUser.full_name,
+          targetShiftInfo: `${time2.workDate} (bắt đầu ${formatTimeVN(time2.startsAt)})`,
+          myShiftInfo: `${time1.workDate} (bắt đầu ${formatTimeVN(time1.startsAt)})`,
+          reason: input.reason,
+        });
+      }
+    }).catch(() => { return; });
+
     return record;
   },
 
@@ -216,6 +235,18 @@ export const swapService = {
       action: 'SHIFT_POOLED',
       detail: { requestId: record.id, shiftId: input.shiftId, expiresAt },
     });
+
+    // Thông báo Telegram khi có ca mới lên Chợ ca
+    void usersRepository.findById(input.requesterId, input.storeId).then((reqUser) => {
+      if (reqUser) {
+        void telegramService.notifyShiftPoolCreated({
+          requesterName: reqUser.full_name,
+          workDate: time.workDate,
+          timeRange: `bắt đầu ${formatTimeVN(time.startsAt)}`,
+          reason: input.reason,
+        });
+      }
+    }).catch(() => { return; });
 
     return record;
   },
@@ -266,6 +297,22 @@ export const swapService = {
       detail: { requestId: input.swapRequestId, shiftId: swapReq.requester_shift },
     });
 
+    // Thông báo Telegram khi ca được nhận thành công
+    void Promise.all([
+      usersRepository.findById(swapReq.requester_id, input.storeId),
+      usersRepository.findById(input.claimerId, input.storeId),
+    ]).then(([reqUser, claimUser]) => {
+      if (reqUser && claimUser) {
+        void telegramService.notifyShiftPoolClaimed({
+          requesterChatId: reqUser.telegram_chat_id,
+          requesterName: reqUser.full_name,
+          claimerName: claimUser.full_name,
+          workDate: time.workDate,
+          timeRange: `bắt đầu ${formatTimeVN(time.startsAt)}`,
+        });
+      }
+    }).catch(() => { return; });
+
     return updated;
   },
 
@@ -296,6 +343,33 @@ export const swapService = {
         action: 'SWAP_REQUEST_REJECTED',
         detail: { requestId: input.swapRequestId, reason: input.adminNote },
       });
+
+      // Bắn thông báo kết quả từ chối qua Telegram
+      void Promise.all([
+        usersRepository.findById(swapReq.requester_id, input.storeId),
+        swapReq.receiver_id ? usersRepository.findById(swapReq.receiver_id, input.storeId) : Promise.resolve(null),
+        usersRepository.findById(input.adminId, input.storeId),
+      ]).then(([reqUser, recUser, adminUser]) => {
+        const adminName = adminUser?.full_name ?? 'Quản lý';
+        if (reqUser) {
+          void telegramService.notifySwapReviewed({
+            recipientChatId: reqUser.telegram_chat_id,
+            recipientName: reqUser.full_name,
+            status: 'rejected',
+            adminName,
+            note: input.adminNote,
+          });
+        }
+        if (recUser) {
+          void telegramService.notifySwapReviewed({
+            recipientChatId: recUser.telegram_chat_id,
+            recipientName: recUser.full_name,
+            status: 'rejected',
+            adminName,
+            note: input.adminNote,
+          });
+        }
+      }).catch(() => { return; });
 
       return rejected;
     }
@@ -339,6 +413,33 @@ export const swapService = {
       detail: { requestId: input.swapRequestId, requesterShift: swapReq.requester_shift, receiverShift: swapReq.receiver_shift },
     });
 
+    // Bắn thông báo kết quả chấp thuận qua Telegram
+    void Promise.all([
+      usersRepository.findById(swapReq.requester_id, input.storeId),
+      swapReq.receiver_id ? usersRepository.findById(swapReq.receiver_id, input.storeId) : Promise.resolve(null),
+      usersRepository.findById(input.adminId, input.storeId),
+    ]).then(([reqUser, recUser, adminUser]) => {
+      const adminName = adminUser?.full_name ?? 'Quản lý';
+      if (reqUser) {
+        void telegramService.notifySwapReviewed({
+          recipientChatId: reqUser.telegram_chat_id,
+          recipientName: reqUser.full_name,
+          status: 'approved',
+          adminName,
+          note: input.adminNote,
+        });
+      }
+      if (recUser) {
+        void telegramService.notifySwapReviewed({
+          recipientChatId: recUser.telegram_chat_id,
+          recipientName: recUser.full_name,
+          status: 'approved',
+          adminName,
+          note: input.adminNote,
+        });
+      }
+    }).catch(() => { return; });
+
     return approved;
   },
 
@@ -358,7 +459,14 @@ export const swapService = {
     });
   },
 
-  async list(storeId: number, filters?: { userId?: string; status?: SwapDetails['status']; type?: SwapDetails['type'] }): Promise<SwapDetails[]> {
+  async list(
+    storeId: number,
+    filters?: {
+      userId?: string | undefined;
+      status?: SwapDetails['status'] | undefined;
+      type?: SwapDetails['type'] | undefined;
+    },
+  ): Promise<SwapDetails[]> {
     return swapRepository.list(storeId, filters);
   },
 

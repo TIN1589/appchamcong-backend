@@ -52,7 +52,8 @@ export const chatController = {
       if (!id) throw new Error('Missing conversation id');
 
       const limit = req.query['limit'] ? Number(req.query['limit']) : 50;
-      const beforeDate = req.query['before'] ? new Date(String(req.query['before'])) : undefined;
+      const beforeVal = req.query['before'];
+      const beforeDate = typeof beforeVal === 'string' ? new Date(beforeVal) : undefined;
 
       const messages = await chatService.listMessages(id, req.user.id, limit, beforeDate);
       res.status(200).json({ data: messages });

@@ -165,4 +165,20 @@ export const usersRepository = {
     );
     return parseInt(result.rows[0]?.count ?? '0', 10) > 0;
   },
+
+  async findByTelegramChatId(chatId: string): Promise<User | null> {
+    const result = await query<User>(
+      'SELECT * FROM users WHERE telegram_chat_id = $1 AND is_active = true',
+      [chatId.trim()],
+    );
+    return result.rows[0] ?? null;
+  },
+
+  async updateTelegramChatId(userId: string, storeId: number, chatId: string | null): Promise<boolean> {
+    const result = await query(
+      'UPDATE users SET telegram_chat_id = $1, updated_at = NOW() WHERE id = $2 AND store_id = $3',
+      [chatId ? chatId.trim() : null, userId, storeId],
+    );
+    return (result.rowCount ?? 0) > 0;
+  },
 };

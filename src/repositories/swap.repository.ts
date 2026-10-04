@@ -40,10 +40,10 @@ export interface CreateSwapInput {
   requesterId: string;
   requesterShiftId: string;
   type: SwapType;
-  receiverId?: string | null;
-  receiverShiftId?: string | null;
-  reason?: string | null;
-  expiresAt?: Date | null;
+  receiverId?: string | null | undefined;
+  receiverShiftId?: string | null | undefined;
+  reason?: string | null | undefined;
+  expiresAt?: Date | null | undefined;
 }
 
 export const swapRepository = {
@@ -125,9 +125,9 @@ export const swapRepository = {
   async list(
     storeId: number,
     filters?: {
-      userId?: string;
-      status?: SwapStatus;
-      type?: SwapType;
+      userId?: string | undefined;
+      status?: SwapStatus | undefined;
+      type?: SwapType | undefined;
     },
   ): Promise<SwapDetails[]> {
     const conditions: string[] = ['sr.store_id = $1'];
