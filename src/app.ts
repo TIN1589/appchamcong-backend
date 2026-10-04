@@ -18,6 +18,7 @@ import { scheduleRouter } from './routes/schedule.js';
 import { attendanceRouter } from './routes/attendance.js';
 import { faceRouter } from './routes/face.js';
 import { adjustmentRouter } from './routes/adjustment.js';
+import { swapRouter, shiftPoolRouter } from './routes/swap.js';
 import { wifiRestrictionMiddleware } from './middleware/wifiRestriction.js';
 
 export function createApp(): express.Application {
@@ -113,6 +114,10 @@ export function createApp(): express.Application {
   app.use('/api/face', faceRouter);
   app.use('/api/adjustments', adjustmentRouter);
   app.use('/adjustments', adjustmentRouter);
+  app.use('/api/swaps', swapRouter);
+  app.use('/swaps', swapRouter);
+  app.use('/api/shift-pool', shiftPoolRouter);
+  app.use('/shift-pool', shiftPoolRouter);
 
   app.use(notFoundHandler);
 
