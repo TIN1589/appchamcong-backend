@@ -1,14 +1,20 @@
+import http from 'http';
 import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { logger } from './lib/logger.js';
 import { db } from './db/client.js';
 import { rosterGenerationService } from './services/rosterGeneration.service.js';
 import { startRosterCron, stopRosterCron } from './services/rosterCron.service.js';
+import { initSocketServer } from './socket/index.js';
 
 async function main(): Promise<void> {
   const app = createApp();
+  const server = http.createServer(app);
 
-  const server = app.listen(env.PORT, () => {
+  // Khởi tạo Real-time Socket.io server
+  const io = initSocketServer(server);
+
+  server.listen(env.PORT, () => {
     logger.info(
       { port: env.PORT, nodeEnv: env.NODE_ENV },
       `🚀 chamcong-backend started on port ${env.PORT}`,
