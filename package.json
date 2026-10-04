@@ -17,6 +17,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:race": "vitest run src/repositories/shifts.assign.race.test.ts",
     "typecheck": "tsc --noEmit",
     "check-overlaps": "tsx scripts/check-overlapping-shifts.ts"
   },

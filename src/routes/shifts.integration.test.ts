@@ -243,7 +243,10 @@ describe('POST /api/shifts/:id/assign — Gán ca cho nhân viên', () => {
     expect(shiftsService.assign).toHaveBeenCalledWith(SHIFT_ID, 1, STAFF_ID);
   });
 
-  it('[RACE CONDITION] Ca đã được gán bởi request khác → service throw ConflictError → 409', async () => {
+  it('[CONFLICT] Service throw ConflictError → 409 (kiểm tra HTTP layer, không phải DB lock)', async () => {
+    // Phạm vi test này: verify route handler trả đúng 409 khi service báo conflict.
+    // Để test SELECT ... FOR UPDATE thật sự hoạt động dưới concurrent load,
+    // xem: src/repositories/shifts.assign.race.test.ts (cần Docker Postgres).
     mockAdmin();
     const { ConflictError, ErrorCode } = await import('../lib/errors.js');
     vi.mocked(shiftsService.assign).mockRejectedValue(
@@ -259,7 +262,10 @@ describe('POST /api/shifts/:id/assign — Gán ca cho nhân viên', () => {
     expect(res.body.message).toMatch(/không còn trống/);
   });
 
-  it('[RACE CONDITION] Gán 2 request đồng thời — chỉ 1 thành công, 1 nhận 409', async () => {
+  it('[CONFLICT] 2 request đồng thời — HTTP layer trả [200, 409] khi service mock đúng thứ tự', async () => {
+    // Phạm vi test này: verify route serializes responses đúng khi service trả hai kết quả khác nhau.
+    // Không chứng minh được DB-level isolation vì service bị mock.
+    // Test concurrency thật → shifts.assign.race.test.ts.
     mockAdmin();
 
     const assignedShift = { ...shiftStub, status: 'assigned' as const, assigned_to: STAFF_ID };
