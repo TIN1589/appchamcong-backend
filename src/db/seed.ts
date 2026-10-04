@@ -141,6 +141,19 @@ export async function seed(): Promise<void> {
         ) ON CONFLICT DO NOTHING
       `, [tueDate]);
 
+      // Xóa ca trùng của Cường và Bình (và segments liên quan qua cascade) trước khi tạo mới để đảm bảo tính idempotent
+      await client.query(`
+        DELETE FROM shifts
+        WHERE (assigned_to = '00000000-0000-0000-0000-000000000004' AND work_date = $1 AND template_id = 'aaaaaaaa-0000-0000-0000-000000000003')
+           OR id = 'dddddddd-0000-0000-0000-000000000001'
+      `, [tueDate]);
+
+      await client.query(`
+        DELETE FROM shifts
+        WHERE (assigned_to = '00000000-0000-0000-0000-000000000003' AND work_date = $1 AND template_id = 'aaaaaaaa-0000-0000-0000-000000000002')
+           OR id = 'dddddddd-0000-0000-0000-000000000002'
+      `, [wedDate]);
+
       // Ca có trạng thái leave_approved của Cường
       await client.query(`
         INSERT INTO shifts (id, store_id, template_id, assigned_to, status, source, shift_type, work_date, created_by)
@@ -150,8 +163,7 @@ export async function seed(): Promise<void> {
           '00000000-0000-0000-0000-000000000004',
           'leave_approved', 'default', 'REGULAR', $1,
           '00000000-0000-0000-0000-000000000001'
-        ) ON CONFLICT (assigned_to, work_date, template_id) WHERE assigned_to IS NOT NULL AND template_id IS NOT NULL
-        DO NOTHING
+        ) ON CONFLICT (id) DO NOTHING
       `, [tueDate]);
 
       await client.query(`
@@ -169,8 +181,7 @@ export async function seed(): Promise<void> {
           '00000000-0000-0000-0000-000000000003',
           'swapped_out', 'manual', 'REGULAR', $1,
           '00000000-0000-0000-0000-000000000001'
-        ) ON CONFLICT (assigned_to, work_date, template_id) WHERE assigned_to IS NOT NULL AND template_id IS NOT NULL
-        DO NOTHING
+        ) ON CONFLICT (id) DO NOTHING
       `, [wedDate]);
 
       await client.query(`

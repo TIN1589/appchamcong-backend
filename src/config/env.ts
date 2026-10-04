@@ -48,6 +48,8 @@ const envSchema = z.object({
   SEED_ADMIN_PASSWORD: z.string().min(8).optional(),
 
   TELEGRAM_BOT_TOKEN: z.string().optional(),
+  TELEGRAM_ADMIN_CHAT_ID: z.string().optional(),
+  TELEGRAM_WEBHOOK_SECRET: z.string().optional(),
 
   EMAIL_HOST: z.string().optional(),
   EMAIL_PORT: z.coerce.number().optional(),
